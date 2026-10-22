@@ -20,7 +20,7 @@ A decentralized Web3 ocean artifact marketplace and auction platform powered by 
 
 ## Overview
 
-Orbix.nft provides a complete, production-grade interface for minting, listing, bidding, purchasing, and managing digital collectibles on the Aptos blockchain. The application connects directly to verified Move smart contracts without intermediary centralized database dependencies.
+orbix.nft provides a complete, production-grade interface for minting, listing, bidding, purchasing, and managing digital collectibles on the Aptos blockchain. The application connects directly to verified Move smart contracts without intermediary centralized database dependencies.
 
 Key highlights:
 
