@@ -17,7 +17,7 @@ import { RefreshCw, PlusCircle, Loader2, FolderLock, PackageOpen } from "lucide-
 export const Route = createFileRoute("/my-nfts")({
   head: () => ({
     meta: [
-      { title: "My Collection — Orbix.Nft" },
+      { title: "My Collection — orbix.nft" },
       { name: "description", content: "Manage your owned ocean artifacts on Aptos." },
     ],
   }),

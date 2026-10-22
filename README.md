@@ -2,6 +2,7 @@
 
 > Submitted for Hack On Hills 7.0 by Team Photon
 > Track: Build on Aptos
+> Live Demo / Test Link: https://orbix-nft.vercel.app/
 
 A decentralized Web3 ocean artifact marketplace and auction platform powered by Aptos Move smart contracts and a modern frontend stack built with React 19, TanStack Start (SSR), Vite 8, Tailwind CSS v4, and Nitro.
 
@@ -34,7 +35,7 @@ Key highlights:
 
 ## Wallet Integration & Authentication
 
-Orbix supports two distinct onboarding paths to ensure accessibility for both crypto-native users and newcomers:
+orbix.nft supports two distinct onboarding paths to ensure accessibility for both crypto-native users and newcomers:
 
 1. Instant Social Login (Keyless):
    - Users can click "Continue with Google" to authenticate immediately via Aptos Connect.
@@ -218,7 +219,7 @@ pnpm preview
 
 ## Deployment to Vercel
 
-Orbix is pre-configured for automated continuous deployment on Vercel via GitHub integration.
+orbix.nft is pre-configured for automated continuous deployment on Vercel via GitHub integration.
 
 ### Method 1: Deploy via Vercel Dashboard
 

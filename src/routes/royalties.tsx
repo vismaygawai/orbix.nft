@@ -12,7 +12,7 @@ import { Percent, ShieldCheck, Loader2, HelpCircle } from "lucide-react";
 export const Route = createFileRoute("/royalties")({
   head: () => ({
     meta: [
-      { title: "Creator Royalties — Orbix.Nft" },
+      { title: "Creator Royalties — orbix.nft" },
       {
         name: "description",
         content: "Configure creator royalties on secondary NFT sales on Aptos.",

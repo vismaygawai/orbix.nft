@@ -24,7 +24,7 @@ import { TrendingUp, Activity, Layers, RefreshCw, Loader2, BarChart3 } from "luc
 export const Route = createFileRoute("/analytics")({
   head: () => ({
     meta: [
-      { title: "Marketplace Analytics — Orbix.Nft" },
+      { title: "Marketplace Analytics — orbix.nft" },
       {
         name: "description",
         content: "On-chain sales metrics, volume, and rarity breakdown on Aptos.",
@@ -165,7 +165,7 @@ function AnalyticsPage() {
             {stats.totalVolumeApt} <span className="text-neon text-xl">APT</span>
           </div>
           <p className="text-[11px] font-mono text-cream/40 mt-2">
-            Aggregated gross value traded on Orbix
+            Aggregated gross value traded on orbix.nft
           </p>
         </div>
 

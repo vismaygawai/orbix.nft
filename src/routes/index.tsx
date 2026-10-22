@@ -5,13 +5,13 @@ import { Mail, Twitter, Github, ChevronRight, ArrowRight } from "lucide-react";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Orbix.Nft — Beneath the Surface NFT Marketplace" },
+      { title: "orbix.nft — Beneath the Surface NFT Marketplace" },
       {
         name: "description",
         content:
           "A collection of ocean artifacts fixed beyond tides and time on the Aptos blockchain.",
       },
-      { property: "og:title", content: "Orbix.Nft — Beneath the Surface" },
+      { property: "og:title", content: "orbix.nft — Beneath the Surface" },
       {
         property: "og:description",
         content: "A collection of ocean artifacts fixed beyond tides and time.",
@@ -164,9 +164,9 @@ function Index() {
             <h2 className="relative font-grotesk uppercase text-cream text-[32px] sm:text-[48px] md:text-[60px] leading-[1.1]">
               Hello!
               <br />
-              I'm orbix
+              I'm orbix.nft
               <span className="font-condiment text-neon normal-case text-[36px] sm:text-[52px] md:text-[68px] absolute -rotate-1 -right-16 -bottom-8">
-                Orbix
+                orbix.nft
               </span>
             </h2>
             <div className="space-y-4 max-w-[340px]">

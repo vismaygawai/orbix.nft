@@ -1,7 +1,7 @@
 /**
  * @file WalletButton.tsx
  * @description Primary wallet connection button, social login modal (Continue with Google),
- * and connected account dropdown menu for Orbix NFT Marketplace.
+ * and connected account dropdown menu for orbix.nft marketplace.
  */
 
 import React, { useState, useEffect } from "react";
@@ -219,7 +219,7 @@ export function WalletButton() {
         <DialogContent className="bg-space/95 border-white/10 text-cream backdrop-blur-2xl sm:max-w-md rounded-3xl p-6 shadow-2xl">
           <DialogHeader className="space-y-1.5 text-left">
             <DialogTitle className="font-grotesk uppercase tracking-wide text-2xl text-cream">
-              Connect to Orbix
+              Connect to orbix.nft
             </DialogTitle>
             <DialogDescription className="text-cream/70 font-mono text-xs">
               Log in seamlessly with your Google account or connect an Aptos browser wallet.

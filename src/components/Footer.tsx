@@ -36,7 +36,7 @@ export function Footer() {
               to="/"
               className="flex items-center gap-[0.06em] font-grotesk text-5xl sm:text-6xl md:text-7xl lg:text-8xl uppercase tracking-wider text-cream hover:opacity-85 transition-opacity"
             >
-              <span>Orbix</span>
+              <span>orbix</span>
               <span className="font-condiment text-neon text-[1.15em] normal-case -rotate-2 relative top-[0.2em]">
                 .nft
               </span>
@@ -102,7 +102,7 @@ export function Footer() {
             </div>
 
             <div className="text-center sm:text-right">
-              © 2026 ORBIX STUDIO. ALL RIGHTS RESERVED.
+              © 2026 ORBIX.NFT. ALL RIGHTS RESERVED.
             </div>
           </div>
         </div>
@@ -121,7 +121,7 @@ export function Footer() {
           </DialogHeader>
           <div className="space-y-4 text-xs font-mono text-cream/80 leading-relaxed py-2 max-h-[60vh] overflow-y-auto">
             <p>
-              Orbix.nft operates on the Aptos distributed blockchain network via verified Move smart
+              orbix.nft operates on the Aptos distributed blockchain network via verified Move smart
               contracts.
             </p>
             <p>
@@ -155,7 +155,7 @@ export function Footer() {
           </DialogHeader>
           <div className="space-y-4 text-xs font-mono text-cream/80 leading-relaxed py-2 max-h-[60vh] overflow-y-auto">
             <p>
-              By accessing Orbix.nft, you agree to interact with the immutable Move smart contract
+              By accessing orbix.nft, you agree to interact with the immutable Move smart contract
               deployed on Aptos.
             </p>
             <p>

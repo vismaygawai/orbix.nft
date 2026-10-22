@@ -25,8 +25,8 @@ import { Search, Filter, RefreshCw, ShoppingBag, Gavel, Loader2, AlertCircle } f
 export const Route = createFileRoute("/market")({
   head: () => ({
     meta: [
-      { title: "Marketplace — Orbix.Nft" },
-      { name: "description", content: "Explore and trade rare Aptos ocean artifacts on Orbix." },
+      { title: "Marketplace — orbix.nft" },
+      { name: "description", content: "Explore and trade rare Aptos ocean artifacts on orbix.nft." },
     ],
   }),
   component: MarketPage,
