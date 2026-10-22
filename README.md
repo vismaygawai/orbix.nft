@@ -1,4 +1,4 @@
-# Orbix.nft - Ocean NFT Marketplace on Aptos
+# orbix.nft - Ocean NFT Marketplace on Aptos
 
 > Submitted for Hack On Hills 7.0 by Team Photon
 > Track: Build on Aptos
@@ -12,7 +12,7 @@ A decentralized Web3 ocean artifact marketplace and auction platform powered by 
 - Event: Hack On Hills 7.0
 - Team: Team Photon
 - Applied Track: Build on Aptos
-- Live Test Link: https://orbix.nft.vercel.app
+- Live Test Link: https://orbix-nft.vercel.app
 - Network: Aptos Devnet
 - Smart Contract Module: NFTMarketplace.move (Address: 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb)
 
