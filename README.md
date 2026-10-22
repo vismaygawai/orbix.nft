@@ -2,7 +2,6 @@
 
 > Submitted for Hack On Hills 7.0 by Team Photon
 > Track: Build on Aptos
-> Live Demo / Test Link: https://orbix.nft.vercel.app
 
 A decentralized Web3 ocean artifact marketplace and auction platform powered by Aptos Move smart contracts and a modern frontend stack built with React 19, TanStack Start (SSR), Vite 8, Tailwind CSS v4, and Nitro.
 
