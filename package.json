@@ -1,7 +1,7 @@
 {
   "name": "orbix.nft",
   "version": "1.0.0",
-  "homepage": "https://orbix.nft.vercel.app",
+  "homepage": "https://orbix-nft.vercel.app/",
   "private": true,
   "sideEffects": false,
   "type": "module",

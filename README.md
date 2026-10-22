@@ -2,6 +2,7 @@
 
 > Submitted for Hack On Hills 7.0 by Team Photon
 > Track: Build on Aptos
+> Live Demo / Test Link: https://orbix-nft.vercel.app/
 
 A decentralized Web3 ocean artifact marketplace and auction platform powered by Aptos Move smart contracts and a modern frontend stack built with React 19, TanStack Start (SSR), Vite 8, Tailwind CSS v4, and Nitro.
 
@@ -12,7 +13,7 @@ A decentralized Web3 ocean artifact marketplace and auction platform powered by 
 - Event: Hack On Hills 7.0
 - Team: Team Photon
 - Applied Track: Build on Aptos
-- Live Test Link: https://orbix-nft.vercel.app
+- Live Test Link: https://orbix-nft.vercel.app/
 - Network: Aptos Devnet
 - Smart Contract Module: NFTMarketplace.move (Address: 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb)
 
@@ -227,7 +228,7 @@ Orbix is pre-configured for automated continuous deployment on Vercel via GitHub
    git init
    git add .
    git commit -m "feat: initial commit of orbix.nft"
-   git remote add origin https://github.com/vismaygawai/Orbix.nft.git
+   git remote add origin https://github.com/vismaygawai/orbix.nft.git
    git push -u origin main
    ```
 2. Navigate to [vercel.com](https://vercel.com) and click "Add New" > "Project".

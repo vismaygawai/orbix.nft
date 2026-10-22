@@ -34,7 +34,7 @@ const CARDS = [
 const SOCIALS = [
   { Icon: Mail, label: "Email", href: "mailto:vismaygawai@gmail.com" },
   { Icon: Twitter, label: "Twitter", href: "https://x.com" },
-  { Icon: Github, label: "GitHub", href: "https://github.com/vismaygawai/Orbix.nft" },
+  { Icon: Github, label: "GitHub", href: "https://github.com/vismaygawai/orbix.nft" },
 ];
 const PAD = "max-w-[1831px] mx-auto px-4 sm:px-6 md:px-10 lg:px-16";
 const ABOUT_TEXT =
