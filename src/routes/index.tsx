@@ -19,17 +19,23 @@ export const Route = createFileRoute("/")({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
+    links: [
+      { rel: "preload", href: "/videos/hero_video_poster.webp", as: "image", type: "image/webp" },
+    ],
   }),
   component: Index,
 });
 
 const HERO = "/videos/hero_video.mp4";
+const HERO_POSTER = "/videos/hero_video_poster.webp";
 const ABOUT = "/videos/about_video.mp4";
+const ABOUT_POSTER = "/videos/about_video_poster.webp";
 const CTA = "/videos/CTA_video.mp4";
+const CTA_POSTER = "/videos/CTA_video_poster.webp";
 const CARDS = [
-  { src: "/videos/nft1.mp4", score: "8.7/10", tier: "Rare" },
-  { src: "/videos/nft2.mp4", score: "9/10", tier: "Epic" },
-  { src: "/videos/nft3.mp4", score: "8.2/10", tier: "Uncommon" },
+  { src: "/videos/nft1.mp4", poster: "/videos/nft1_poster.webp", score: "8.7/10", tier: "Rare" },
+  { src: "/videos/nft2.mp4", poster: "/videos/nft2_poster.webp", score: "9/10", tier: "Epic" },
+  { src: "/videos/nft3.mp4", poster: "/videos/nft3_poster.webp", score: "8.2/10", tier: "Uncommon" },
 ];
 const SOCIALS = [
   { Icon: Mail, label: "Email", href: "mailto:vismaygawai@gmail.com" },
@@ -40,7 +46,15 @@ const PAD = "max-w-[1831px] mx-auto px-4 sm:px-6 md:px-10 lg:px-16";
 const ABOUT_TEXT =
   "A digital object fixed beyond tides and time. An exploration of depth, form, and silence in the ocean on the Aptos network.";
 
-function LazyVideo({ src, className }: { src: string; className?: string }) {
+function LazyVideo({
+  src,
+  poster,
+  className,
+}: {
+  src: string;
+  poster?: string;
+  className?: string;
+}) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const v = ref.current;
@@ -48,15 +62,26 @@ function LazyVideo({ src, className }: { src: string; className?: string }) {
     const io = new IntersectionObserver(
       ([e]) => {
         if (!e) return;
-        if (e.intersectionRatio >= 0.5) v.play().catch(() => {});
-        else if (e.intersectionRatio < 0.1) v.pause();
+        if (e.isIntersecting) v.play().catch(() => {});
+        else v.pause();
       },
-      { threshold: [0, 0.1, 0.5] },
+      { threshold: 0.2 },
     );
     io.observe(v);
     return () => io.disconnect();
   }, []);
-  return <video ref={ref} src={src} className={className} loop muted playsInline preload="none" />;
+  return (
+    <video
+      ref={ref}
+      src={src}
+      poster={poster}
+      className={className}
+      loop
+      muted
+      playsInline
+      preload="metadata"
+    />
+  );
 }
 
 function SocialButton({ Icon, label, href }: (typeof SOCIALS)[number]) {
@@ -85,6 +110,7 @@ function Index() {
       >
         <video
           src={HERO}
+          poster={HERO_POSTER}
           autoPlay
           loop
           muted
@@ -150,11 +176,12 @@ function Index() {
       <section aria-label="About" className="relative min-h-screen overflow-hidden">
         <video
           src={ABOUT}
+          poster={ABOUT_POSTER}
           autoPlay
           loop
           muted
           playsInline
-          preload="auto"
+          preload="metadata"
           className="absolute inset-0 w-full h-full object-cover z-0"
         />
 
@@ -225,7 +252,11 @@ function Index() {
                 className="liquid-glass rounded-[32px] p-[18px] group hover:bg-white/10 transition-colors duration-300"
               >
                 <div className="relative pb-[100%] rounded-[24px] overflow-hidden">
-                  <LazyVideo src={c.src} className="absolute inset-0 w-full h-full object-cover" />
+                  <LazyVideo
+                    src={c.src}
+                    poster={c.poster}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
                   <div className="absolute bottom-4 left-4 right-4 liquid-glass rounded-[20px] px-5 py-4 flex items-center justify-between">
                     <div className="flex flex-col">
                       <span className="text-[11px] text-cream/70 font-mono uppercase">
@@ -255,7 +286,11 @@ function Index() {
         {/* Seamless top blend from Collection section */}
         <div className="absolute inset-x-0 top-0 h-28 sm:h-40 bg-gradient-to-b from-space to-transparent pointer-events-none z-10" />
 
-        <LazyVideo src={CTA} className="w-full h-full min-h-[460px] sm:min-h-0 object-cover block" />
+        <LazyVideo
+          src={CTA}
+          poster={CTA_POSTER}
+          className="w-full h-full min-h-[460px] sm:min-h-0 object-cover block"
+        />
 
         {/* Seamless bottom blend into Footer */}
         <div className="absolute inset-x-0 bottom-0 h-28 sm:h-40 bg-gradient-to-b from-transparent to-space pointer-events-none z-10" />
