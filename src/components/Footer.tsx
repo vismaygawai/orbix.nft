@@ -54,6 +54,16 @@ export function Footer() {
                 <ExternalLink className="w-3.5 h-3.5 opacity-60" />
               </a>
 
+              <a
+                href="https://devfolio.co/projects/nft-digital-assets-marketplace-5e7c"
+                target="_blank"
+                rel="noreferrer"
+                className="font-mono text-xs sm:text-sm uppercase tracking-wider text-cream/70 hover:text-neon transition-colors flex items-center gap-1.5"
+              >
+                <span>DEVFOLIO</span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+              </a>
+
               <Link
                 to="/market"
                 className="font-mono text-xs sm:text-sm uppercase tracking-wider text-cream/70 hover:text-neon transition-colors"
