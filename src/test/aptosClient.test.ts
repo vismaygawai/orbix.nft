@@ -29,7 +29,7 @@ describe("Aptos Client Utilities", () => {
   });
 
   it("encodes and decodes vector<u8> strings", () => {
-    const original = "orbix.nft Celestial #01";
+    const original = "Orbix Celestial #01";
     const encoded = encodeStringToVector(original);
     expect(Array.isArray(encoded)).toBe(true);
     const decoded = decodeVectorOrHexToString(encoded);

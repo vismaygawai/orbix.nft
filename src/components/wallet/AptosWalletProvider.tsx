@@ -59,7 +59,7 @@ export function AptosWalletProvider({ children }: Props) {
       dappConfig={{
         network: targetNetwork as any,
         aptosConnect: {
-          dappName: "orbix.nft",
+          dappName: "Orbix.nft",
         },
       }}
       onError={(error) => {

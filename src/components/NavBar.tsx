@@ -28,7 +28,7 @@ export function NavBar() {
             to="/"
             className="flex items-center gap-1 font-grotesk text-xl uppercase tracking-wider text-cream hover:opacity-80 transition-opacity"
           >
-            <span>orbix</span>
+            <span>Orbix</span>
             <span className="font-condiment text-neon text-2xl normal-case -rotate-2 relative top-1">
               .nft
             </span>

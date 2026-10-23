@@ -37,7 +37,7 @@ Key highlights:
 
 ## Wallet Integration & Authentication
 
-orbix.nft supports two distinct onboarding paths to ensure accessibility for both crypto-native users and newcomers:
+Orbix supports two distinct onboarding paths to ensure accessibility for both crypto-native users and newcomers:
 
 1. Instant Social Login (Keyless):
    - Users can click "Continue with Google" to authenticate immediately via Aptos Connect.
@@ -221,7 +221,7 @@ pnpm preview
 
 ## Deployment to Vercel
 
-orbix.nft is pre-configured for automated continuous deployment on Vercel via GitHub integration.
+Orbix is pre-configured for automated continuous deployment on Vercel via GitHub integration.
 
 ### Method 1: Deploy via Vercel Dashboard
 
