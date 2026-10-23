@@ -155,7 +155,7 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
               return (
                 <div
                   key={index}
-                  className="liquid-glass p-3.5 rounded-2xl border border-white/10 flex items-center justify-between gap-3"
+                  className="liquid-glass p-3.5 rounded-2xl border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">

@@ -34,7 +34,7 @@ export function Footer() {
             {/* Big Brand Typography styled identically to the navbar */}
             <Link
               to="/"
-              className="flex items-center gap-[0.06em] font-grotesk text-5xl sm:text-6xl md:text-7xl lg:text-8xl uppercase tracking-wider text-cream hover:opacity-85 transition-opacity"
+              className="flex items-center gap-[0.06em] font-grotesk text-4xl sm:text-6xl md:text-7xl lg:text-8xl uppercase tracking-wider text-cream hover:opacity-85 transition-opacity"
             >
               <span>Orbix</span>
               <span className="font-condiment text-neon text-[1.15em] normal-case -rotate-2 relative top-[0.2em]">

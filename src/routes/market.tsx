@@ -180,63 +180,65 @@ function MarketPage() {
       {/* Tabs & Filters */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* View Switcher */}
-        <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)}>
-          <TabsList className="liquid-glass border border-white/10 p-1 rounded-2xl">
+        <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full sm:w-auto">
+          <TabsList className="liquid-glass border border-white/10 p-1 rounded-2xl w-full grid grid-cols-2 sm:flex sm:w-auto h-auto">
             <TabsTrigger
               value="marketplace"
-              className="data-[state=active]:bg-neon data-[state=active]:text-cream rounded-xl font-mono text-xs px-4 py-2"
+              className="data-[state=active]:bg-neon data-[state=active]:text-cream rounded-xl font-mono text-xs px-3 sm:px-4 py-2 text-center"
             >
-              <ShoppingBag className="w-3.5 h-3.5 mr-1.5" /> Direct Listings ({nfts.length})
+              <ShoppingBag className="w-3.5 h-3.5 mr-1.5 shrink-0" /> Direct Listings ({nfts.length})
             </TabsTrigger>
             <TabsTrigger
               value="auctions"
-              className="data-[state=active]:bg-neon data-[state=active]:text-cream rounded-xl font-mono text-xs px-4 py-2"
+              className="data-[state=active]:bg-neon data-[state=active]:text-cream rounded-xl font-mono text-xs px-3 sm:px-4 py-2 text-center"
             >
-              <Gavel className="w-3.5 h-3.5 mr-1.5" /> Live Auctions ({auctions.length})
+              <Gavel className="w-3.5 h-3.5 mr-1.5 shrink-0" /> Live Auctions ({auctions.length})
             </TabsTrigger>
           </TabsList>
         </Tabs>
 
         {/* Filter controls (only for direct listings) */}
         {activeTab === "marketplace" && (
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full lg:w-auto">
             {/* Search */}
-            <div className="relative min-w-[200px]">
+            <div className="relative flex-1 sm:min-w-[200px]">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-cream/40" />
               <Input
                 placeholder="Search by name or #id..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-white/5 border-white/15 text-cream placeholder:text-cream/30 text-xs font-mono pl-9 rounded-xl focus-visible:ring-neon h-9"
+                className="bg-white/5 border-white/15 text-cream placeholder:text-cream/30 text-xs font-mono pl-9 rounded-xl focus-visible:ring-neon h-9 w-full"
               />
             </div>
 
-            {/* Rarity */}
-            <Select value={rarityFilter} onValueChange={setRarityFilter}>
-              <SelectTrigger className="bg-white/5 border-white/15 text-cream text-xs font-mono rounded-xl h-9 min-w-[130px]">
-                <Filter className="w-3 h-3 mr-1.5 text-neon" />
-                <SelectValue placeholder="Rarity" />
-              </SelectTrigger>
-              <SelectContent className="bg-space border-white/10 text-cream font-mono text-xs">
-                <SelectItem value="all">All Rarities</SelectItem>
-                <SelectItem value="1">Common</SelectItem>
-                <SelectItem value="2">Uncommon</SelectItem>
-                <SelectItem value="3">Rare</SelectItem>
-                <SelectItem value="4">Epic</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-3">
+              {/* Rarity */}
+              <Select value={rarityFilter} onValueChange={setRarityFilter}>
+                <SelectTrigger className="bg-white/5 border-white/15 text-cream text-xs font-mono rounded-xl h-9 flex-1 sm:min-w-[130px]">
+                  <Filter className="w-3 h-3 mr-1.5 text-neon shrink-0" />
+                  <SelectValue placeholder="Rarity" />
+                </SelectTrigger>
+                <SelectContent className="bg-space border-white/10 text-cream font-mono text-xs">
+                  <SelectItem value="all">All Rarities</SelectItem>
+                  <SelectItem value="1">Common</SelectItem>
+                  <SelectItem value="2">Uncommon</SelectItem>
+                  <SelectItem value="3">Rare</SelectItem>
+                  <SelectItem value="4">Epic</SelectItem>
+                </SelectContent>
+              </Select>
 
-            {/* Sort */}
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="bg-white/5 border-white/15 text-cream text-xs font-mono rounded-xl h-9 min-w-[150px]">
-                <SelectValue placeholder="Sort By" />
-              </SelectTrigger>
-              <SelectContent className="bg-space border-white/10 text-cream font-mono text-xs">
-                <SelectItem value="newest">Newest Listed</SelectItem>
-                <SelectItem value="price_asc">Price: Low to High</SelectItem>
-                <SelectItem value="price_desc">Price: High to Low</SelectItem>
-              </SelectContent>
-            </Select>
+              {/* Sort */}
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="bg-white/5 border-white/15 text-cream text-xs font-mono rounded-xl h-9 flex-1 sm:min-w-[150px]">
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent className="bg-space border-white/10 text-cream font-mono text-xs">
+                  <SelectItem value="newest">Newest Listed</SelectItem>
+                  <SelectItem value="price_asc">Price: Low to High</SelectItem>
+                  <SelectItem value="price_desc">Price: High to Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
       </div>

@@ -91,17 +91,17 @@ function MyNFTsPage() {
 
   if (!connected) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-24 text-center space-y-6">
-        <div className="liquid-glass p-12 rounded-3xl border border-white/10 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 py-16 sm:py-24 text-center space-y-6">
+        <div className="liquid-glass p-6 sm:p-12 rounded-3xl border border-white/10 space-y-6">
           <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-neon">
             <FolderLock className="w-8 h-8" />
           </div>
           <div className="space-y-2">
-            <h2 className="font-grotesk uppercase text-3xl sm:text-4xl text-cream tracking-wide">
+            <h2 className="font-grotesk uppercase text-2xl sm:text-4xl text-cream tracking-wide">
               Wallet Not Connected
             </h2>
             <p className="font-mono text-xs sm:text-sm text-cream/60 max-w-md mx-auto">
-              Connect your Aptos wallet to view and manage your owned space artifacts, list them for
+              Connect your Aptos wallet to view and manage your owned ocean artifacts, list them for
               sale, or review offers.
             </p>
           </div>
@@ -122,7 +122,7 @@ function MyNFTsPage() {
             Personal Inventory
           </span>
           <h1 className="font-grotesk uppercase text-4xl sm:text-5xl md:text-6xl text-cream tracking-wide mt-1">
-            My Space Artifacts
+            My Ocean Artifacts
           </h1>
           <p className="text-xs font-mono text-cream/60 mt-1">
             Connected as:{" "}
@@ -131,10 +131,10 @@ function MyNFTsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <Button
             onClick={() => setMintOpen(true)}
-            className="orb-button text-cream font-mono text-xs px-4 py-2 rounded-xl flex items-center gap-2"
+            className="orb-button text-cream font-mono text-xs px-4 py-2 rounded-xl flex-1 sm:flex-initial flex items-center justify-center gap-2"
           >
             <PlusCircle className="w-4 h-4" />
             <span>Mint New Object</span>
@@ -144,7 +144,7 @@ function MyNFTsPage() {
             variant="outline"
             onClick={fetchMyNFTs}
             disabled={loading}
-            className="liquid-glass text-cream border-white/20 hover:bg-white/10 font-mono text-xs flex items-center gap-2 rounded-xl"
+            className="liquid-glass text-cream border-white/20 hover:bg-white/10 font-mono text-xs flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-xl"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             <span>Refresh</span>

@@ -117,7 +117,7 @@ function RootShell({ children }: { children: ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body className="bg-space text-cream selection:bg-neon/30 selection:text-cream">
+      <body className="bg-space text-cream selection:bg-neon/30 selection:text-cream overflow-x-hidden">
         {children}
         <Scripts />
       </body>
@@ -131,7 +131,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AptosWalletProvider>
-        <div className="min-h-screen flex flex-col bg-space text-cream relative">
+        <div className="min-h-screen flex flex-col bg-space text-cream relative overflow-x-hidden">
           <NavBar />
           <div className="flex-1">
             <Outlet />

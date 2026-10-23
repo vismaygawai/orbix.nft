@@ -159,7 +159,7 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
 
       {!isEnded && (
         <form onSubmit={handleBid} className="space-y-2 mt-2">
-          <div className="flex gap-2">
+          <div className="flex flex-col min-[380px]:flex-row gap-2">
             <Input
               type="number"
               step="0.01"
@@ -167,13 +167,13 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
               placeholder={`Min ${minBidApt} APT`}
               value={bidInput}
               onChange={(e) => setBidInput(e.target.value)}
-              className="bg-white/5 border-white/15 text-cream placeholder:text-cream/30 focus-visible:ring-neon font-mono text-xs"
+              className="bg-white/5 border-white/15 text-cream placeholder:text-cream/30 focus-visible:ring-neon font-mono text-xs flex-1"
               required
             />
             <Button
               type="submit"
               disabled={Boolean(loading || !connected || isHighestBidder)}
-              className="orb-button text-cream font-mono text-xs px-4 rounded-xl flex items-center gap-1.5 whitespace-nowrap"
+              className="orb-button text-cream font-mono text-xs px-4 py-2 rounded-xl flex items-center justify-center gap-1.5 whitespace-nowrap w-full min-[380px]:w-auto cursor-pointer"
             >
               {loading ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />

@@ -21,12 +21,13 @@ export function NavBar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-space/40 border-b border-white/5 transition-colors">
-        <div className="max-w-[1831px] mx-auto px-4 sm:px-6 md:px-10 lg:px-16 py-3.5 flex items-center justify-between">
+      <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-space/60 border-b border-white/10 transition-colors">
+        <div className="max-w-[1831px] mx-auto px-4 sm:px-6 md:px-10 lg:px-16 py-3 sm:py-3.5 flex items-center justify-between gap-3">
           {/* Brand Logo */}
           <Link
             to="/"
-            className="flex items-center gap-1 font-grotesk text-xl uppercase tracking-wider text-cream hover:opacity-80 transition-opacity"
+            onClick={() => setMobileMenuOpen(false)}
+            className="flex items-center gap-1 font-grotesk text-lg sm:text-xl uppercase tracking-wider text-cream hover:opacity-80 transition-opacity shrink-0"
           >
             <span>Orbix</span>
             <span className="font-condiment text-neon text-2xl normal-case -rotate-2 relative top-1">
@@ -34,7 +35,7 @@ export function NavBar() {
             </span>
           </Link>
 
-          {/* Desktop Navigation Links */}
+          {/* Desktop Navigation Links (Large screens only) */}
           <nav className="hidden lg:block liquid-glass rounded-full border border-white/15 px-8 py-2.5 shadow-lg shadow-black/20 backdrop-blur-md">
             <ul className="flex items-center gap-8">
               {navLinks.map((link) => {
@@ -55,12 +56,12 @@ export function NavBar() {
             </ul>
           </nav>
 
-          {/* Action Buttons: Mint + Wallet */}
-          <div className="hidden sm:flex items-center gap-3">
+          {/* Action Buttons: Desktop Mint + Wallet (lg screens) */}
+          <div className="hidden lg:flex items-center gap-3 shrink-0">
             <Button
               onClick={() => setMintOpen(true)}
               variant="outline"
-              className="liquid-glass text-cream border-white/20 hover:bg-white/10 font-mono text-xs font-bold px-3.5 py-2 h-auto flex items-center gap-1.5 rounded-xl uppercase tracking-wider"
+              className="liquid-glass text-cream border-white/20 hover:bg-white/10 font-mono text-xs font-bold px-3.5 py-2 h-auto flex items-center gap-1.5 rounded-xl uppercase tracking-wider cursor-pointer"
             >
               <PlusCircle className="w-4 h-4 text-neon" />
               <span>MINT OBJECT</span>
@@ -69,48 +70,59 @@ export function NavBar() {
             <WalletButton />
           </div>
 
-          {/* Mobile hamburger */}
-          <div className="flex sm:hidden items-center gap-2">
+          {/* Mobile & Tablet Bar (< lg) */}
+          <div className="flex lg:hidden items-center gap-2 shrink-0">
             <WalletButton />
+
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="text-cream hover:bg-white/10"
+              className="text-cream hover:bg-white/10 w-9 h-9 rounded-xl border border-white/10 cursor-pointer flex items-center justify-center shrink-0"
+              aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
           </div>
         </div>
 
-        {/* Mobile menu dropdown */}
+        {/* Mobile & Tablet Full-width dropdown (< lg) */}
         {mobileMenuOpen && (
-          <div className="sm:hidden px-4 py-4 space-y-3 bg-space border-b border-white/10">
-            <ul className="space-y-2">
-              {navLinks.map((link) => (
-                <li key={link.to}>
-                  <Link
-                    to={link.to}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block font-grotesk uppercase text-sm py-2 px-3 rounded-lg text-cream hover:bg-white/10"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
+          <div className="lg:hidden px-4 py-5 space-y-4 bg-space/95 border-b border-white/10 backdrop-blur-2xl shadow-2xl animate-in slide-in-from-top-2 duration-200">
+            <ul className="space-y-1.5">
+              {navLinks.map((link) => {
+                const isActive = currentPath === link.to;
+                return (
+                  <li key={link.to}>
+                    <Link
+                      to={link.to}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`block font-grotesk uppercase text-sm py-2.5 px-4 rounded-xl transition-all ${
+                        isActive
+                          ? "bg-white/10 text-neon font-bold border border-neon/30"
+                          : "text-cream/80 hover:bg-white/5 hover:text-cream"
+                      }`}
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
 
-            <Button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                setMintOpen(true);
-              }}
-              variant="outline"
-              className="w-full liquid-glass text-cream border-white/20 flex items-center justify-center gap-2 uppercase tracking-wider font-mono text-xs font-bold py-2.5 rounded-xl"
-            >
-              <PlusCircle className="w-4 h-4 text-neon" />
-              <span>MINT OBJECT</span>
-            </Button>
+            <div className="pt-2 border-t border-white/10">
+              <Button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setMintOpen(true);
+                }}
+                variant="outline"
+                className="w-full orb-button text-cream border-white/20 flex items-center justify-center gap-2 uppercase tracking-wider font-mono text-xs font-bold py-3 rounded-xl cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4 text-neon" />
+                <span>MINT NEW OBJECT</span>
+              </Button>
+            </div>
           </div>
         )}
       </header>

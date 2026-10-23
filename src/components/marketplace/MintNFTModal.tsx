@@ -150,19 +150,19 @@ export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
             </Select>
           </div>
 
-          <DialogFooter className="pt-4 flex items-center justify-end gap-2">
+          <DialogFooter className="pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
             <Button
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
-              className="text-cream/70 hover:text-cream hover:bg-white/5"
+              className="text-cream/70 hover:text-cream hover:bg-white/5 w-full sm:w-auto"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={loading || !connected}
-              className="orb-button text-cream font-mono text-xs px-6 py-2.5 rounded-xl flex items-center gap-2"
+              className="orb-button text-cream font-mono text-xs px-6 py-2.5 rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{loading ? "Minting..." : "Confirm Mint"}</span>

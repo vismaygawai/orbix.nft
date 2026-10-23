@@ -106,26 +106,31 @@ function Index() {
         <div className={`relative z-10 w-full ${PAD} py-12`}>
           <div className="flex flex-col justify-center min-h-[60vh] relative">
             <div className="relative max-w-[850px] lg:ml-20">
-              <h1 className="font-grotesk uppercase text-cream leading-[1.05] lg:leading-[0.98] text-[40px] sm:text-[60px] md:text-[75px] lg:text-[90px]">
+              <div className="sm:hidden mb-2">
+                <span className="font-condiment text-neon text-[24px] inline-block -rotate-2 opacity-95 normal-case">
+                  Aptos nft collection
+                </span>
+              </div>
+              <h1 className="font-grotesk uppercase text-cream leading-[1.05] lg:leading-[0.98] text-[34px] sm:text-[60px] md:text-[75px] lg:text-[90px]">
                 Beneath the surface
                 <br />
                 and ( its ) uncharted depths
               </h1>
-              <span className="font-condiment text-neon text-[24px] sm:text-[36px] md:text-[48px] absolute -rotate-2 opacity-90 right-4 sm:right-10 top-[28%] normal-case">
+              <span className="hidden sm:inline-block font-condiment text-neon text-[36px] md:text-[48px] absolute -rotate-2 opacity-90 right-4 sm:right-10 top-[28%] normal-case pointer-events-none">
                 Aptos nft collection
               </span>
 
-              <div className="mt-8 flex flex-wrap items-center gap-4">
+              <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
                 <Link
                   to="/market"
-                  className="orb-button px-8 py-4 rounded-2xl font-mono text-sm font-bold uppercase tracking-wider text-cream flex items-center justify-center hover:scale-105 transition-transform"
+                  className="orb-button w-full sm:w-auto px-8 py-4 rounded-2xl font-mono text-sm font-bold uppercase tracking-wider text-cream flex items-center justify-center hover:scale-105 transition-transform text-center"
                 >
                   <span>Explore Marketplace</span>
                 </Link>
 
                 <Link
                   to="/my-nfts"
-                  className="liquid-glass px-8 py-4 rounded-2xl font-mono text-sm font-bold uppercase tracking-wider text-cream border border-white/20 hover:bg-white/10 transition-colors"
+                  className="liquid-glass w-full sm:w-auto px-8 py-4 rounded-2xl font-mono text-sm font-bold uppercase tracking-wider text-cream border border-white/20 hover:bg-white/10 transition-colors flex items-center justify-center text-center"
                 >
                   <span>My Collection</span>
                 </Link>
@@ -164,8 +169,8 @@ function Index() {
             <h2 className="relative font-grotesk uppercase text-cream text-[32px] sm:text-[48px] md:text-[60px] leading-[1.1]">
               Hello!
               <br />
-              I'm orbix
-              <span className="font-condiment text-neon normal-case text-[36px] sm:text-[52px] md:text-[68px] absolute -rotate-1 -right-16 -bottom-8">
+              I'm Orbix
+              <span className="font-condiment text-neon normal-case text-[28px] sm:text-[52px] md:text-[68px] absolute -rotate-1 right-0 sm:-right-16 -bottom-6 sm:-bottom-8 pointer-events-none">
                 Orbix
               </span>
             </h2>
@@ -246,30 +251,30 @@ function Index() {
       </section>
 
       {/* CTA */}
-      <section aria-label="Call to action" className="relative overflow-hidden">
+      <section aria-label="Call to action" className="relative overflow-hidden min-h-[460px] sm:min-h-0">
         {/* Seamless top blend from Collection section */}
         <div className="absolute inset-x-0 top-0 h-28 sm:h-40 bg-gradient-to-b from-space to-transparent pointer-events-none z-10" />
 
-        <LazyVideo src={CTA} className="w-full h-auto block" />
+        <LazyVideo src={CTA} className="w-full h-full min-h-[460px] sm:min-h-0 object-cover block" />
 
         {/* Seamless bottom blend into Footer */}
         <div className="absolute inset-x-0 bottom-0 h-28 sm:h-40 bg-gradient-to-b from-transparent to-space pointer-events-none z-10" />
         <div className="absolute inset-0 flex items-center">
           <div className="relative w-full px-4 sm:px-6 md:px-10 lg:pr-[20%] lg:pl-[15%] text-right">
-            <h2 className="relative inline-block font-grotesk uppercase text-cream text-[16px] sm:text-[32px] md:text-[48px] lg:text-[60px] leading-[1.2]">
-              <span className="font-condiment text-neon normal-case text-[17px] sm:text-[36px] md:text-[48px] lg:text-[68px] absolute -top-[1.2em] left-0 -rotate-1">
+            <h2 className="relative inline-block font-grotesk uppercase text-cream text-[20px] sm:text-[32px] md:text-[48px] lg:text-[60px] leading-[1.2]">
+              <span className="font-condiment text-neon normal-case text-[24px] sm:text-[36px] md:text-[48px] lg:text-[68px] absolute -top-[1.2em] left-0 -rotate-1">
                 Dive deep
               </span>
-              <span className="block mb-4 sm:mb-6 md:mb-8 lg:mb-12">Dive in.</span>
+              <span className="block mb-3 sm:mb-6 md:mb-8 lg:mb-12">Dive in.</span>
               <span className="block">Reveal the depths.</span>
               <span className="block">Chart the unknown.</span>
               <span className="block">Follow the current.</span>
             </h2>
 
-            <div className="mt-8">
+            <div className="mt-6 sm:mt-8">
               <Link
                 to="/market"
-                className="orb-button inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl text-xs sm:text-sm font-mono font-bold uppercase tracking-wider hover:scale-105 transition-transform"
+                className="orb-button inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-3.5 rounded-2xl text-xs sm:text-sm font-mono font-bold uppercase tracking-wider hover:scale-105 transition-transform"
               >
                 <span>Enter Marketplace</span>
                 <ArrowRight className="w-4 h-4" />

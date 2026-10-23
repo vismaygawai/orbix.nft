@@ -80,13 +80,13 @@ function RoyaltiesPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
         {/* Form Card */}
-        <div className="liquid-glass p-8 rounded-3xl border border-white/10 space-y-6">
+        <div className="liquid-glass p-5 sm:p-8 rounded-3xl border border-white/10 space-y-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-neon/10 border border-neon/30 flex items-center justify-center text-neon">
+            <div className="w-10 h-10 rounded-2xl bg-neon/10 border border-neon/30 flex items-center justify-center text-neon shrink-0">
               <Percent className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-grotesk uppercase text-2xl text-cream">Configure Rate</h2>
+              <h2 className="font-grotesk uppercase text-xl sm:text-2xl text-cream">Configure Rate</h2>
               <p className="text-xs font-mono text-cream/50">
                 Stored directly in the Move contract
               </p>
@@ -146,12 +146,12 @@ function RoyaltiesPage() {
 
         {/* Informational Card */}
         <div className="space-y-6">
-          <div className="liquid-glass p-8 rounded-3xl border border-white/10 space-y-4">
+          <div className="liquid-glass p-5 sm:p-8 rounded-3xl border border-white/10 space-y-4">
             <div className="flex items-center gap-2 text-neon text-xs font-mono uppercase">
               <ShieldCheck className="w-4 h-4" />
               <span>Smart Contract Protection</span>
             </div>
-            <h3 className="font-grotesk uppercase text-2xl text-cream">How Royalties Function</h3>
+            <h3 className="font-grotesk uppercase text-xl sm:text-2xl text-cream">How Royalties Function</h3>
             <p className="text-xs font-mono text-cream/70 leading-relaxed">
               When a buyer purchases an NFT or accepts an offer, the Move smart contract checks the
               creator's address in its internal table:
