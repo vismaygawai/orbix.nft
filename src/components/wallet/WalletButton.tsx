@@ -253,17 +253,17 @@ export function WalletButton() {
       </Button>
 
       <Dialog open={connectModalOpen} onOpenChange={setConnectModalOpen}>
-        <DialogContent className="bg-space/95 border-white/15 text-cream backdrop-blur-2xl sm:max-w-md p-5 sm:p-6 shadow-2xl">
-          <DialogHeader className="space-y-1.5 text-left">
-            <DialogTitle className="font-grotesk uppercase tracking-wide text-xl sm:text-2xl text-cream">
+        <DialogContent className="liquid-glass border-white/20 bg-space text-cream max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-grotesk text-xl uppercase tracking-wider text-neon">
               Connect to Orbix.nft
             </DialogTitle>
-            <DialogDescription className="text-cream/70 font-mono text-xs">
+            <DialogDescription className="font-mono text-xs text-cream/60">
               Log in seamlessly with your Google account or connect an Aptos wallet.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 pt-3 sm:pt-4">
+          <div className="space-y-4 text-xs font-mono text-cream/80 leading-relaxed py-2 max-h-[60vh] overflow-y-auto pr-1">
             {/* Social Login Section (Google Keyless via Aptos Connect / Petra Web) */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -275,8 +275,9 @@ export function WalletButton() {
                 </span>
               </div>
               <button
+                type="button"
                 onClick={handleGoogleConnect}
-                className="w-full liquid-glass hover:bg-white/15 p-3.5 sm:p-4 rounded-2xl flex items-center justify-between transition-all border border-neon/40 hover:border-neon group text-left cursor-pointer shadow-lg hover:shadow-neon/20"
+                className="w-full liquid-glass hover:bg-white/15 p-3 sm:p-3.5 rounded-2xl flex items-center justify-between transition-all border border-neon/40 hover:border-neon group text-left cursor-pointer shadow-lg hover:shadow-neon/20"
               >
                 <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                   <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white flex items-center justify-center p-2 shadow-sm shrink-0">
@@ -307,15 +308,16 @@ export function WalletButton() {
             </div>
 
             {/* Wallets List */}
-            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+            <div className="space-y-2">
               {extensionWallets.length > 0 ? (
                 extensionWallets.map((wallet) => {
                   const isInstalled = wallet.readyState === "Installed";
                   return (
                     <button
                       key={wallet.name}
+                      type="button"
                       onClick={() => handleConnect(wallet)}
-                      className="w-full liquid-glass hover:bg-white/10 p-3 sm:p-3.5 rounded-2xl flex items-center justify-between transition-all border border-white/10 hover:border-white/30 text-left cursor-pointer group"
+                      className="w-full liquid-glass hover:bg-white/10 p-2.5 sm:p-3 rounded-2xl flex items-center justify-between transition-all border border-white/10 hover:border-white/30 text-left cursor-pointer group"
                     >
                       <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                         {wallet.icon ? (
@@ -357,16 +359,7 @@ export function WalletButton() {
               )}
             </div>
 
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setConnectModalOpen(false)}
-              className="w-full sm:hidden liquid-glass border-white/10 text-cream/70 hover:text-cream font-mono text-xs py-2.5 rounded-xl mt-2 cursor-pointer"
-            >
-              Cancel
-            </Button>
-
-            <div className="pt-1 text-center">
+            <div className="pt-2 text-center border-t border-white/10">
               <p className="text-[10px] font-mono text-cream/40">
                 Connected to Aptos Devnet • Powered by Aptos Connect & Move
               </p>
