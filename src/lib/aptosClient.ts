@@ -145,6 +145,8 @@ export function decodeVectorOrHexToString(value: any): string {
   return String(value);
 }
 
+export const decodeVectorToString = decodeVectorOrHexToString;
+
 export function createEntryPayload(
   functionName: string,
   functionArguments: (string | number | number[])[],
