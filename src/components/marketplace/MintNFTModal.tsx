@@ -20,7 +20,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { aptosClient, encodeStringToVector, createEntryPayload } from "@/lib/aptosClient";
+import {
+  encodeStringToVector,
+  createEntryPayload,
+  confirmTransaction,
+  sanitizeMediaUri,
+} from "@/lib/aptosClient";
 import { Loader2 } from "lucide-react";
 
 interface Props {
@@ -48,6 +53,12 @@ export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
       return;
     }
 
+    const sanitizedUri = sanitizeMediaUri(uri.trim());
+    if (!sanitizedUri) {
+      toast.error("Please enter a valid https:// or ipfs:// media URL");
+      return;
+    }
+
     setLoading(true);
     const toastId = toast.loading("Submitting mint transaction...");
 
@@ -55,14 +66,14 @@ export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
       const payload = createEntryPayload("mint_nft", [
         encodeStringToVector(name.trim()),
         encodeStringToVector(description.trim()),
-        encodeStringToVector(uri.trim()),
+        encodeStringToVector(sanitizedUri),
         parseInt(rarity, 10),
       ]);
 
       const response: any = await signAndSubmitTransaction(payload);
       toast.loading("Waiting for on-chain confirmation...", { id: toastId });
 
-      await aptosClient.waitForTransaction(response.hash || response);
+      await confirmTransaction(response);
 
       toast.success("NFT minted successfully on Aptos!", { id: toastId });
       setName("");
@@ -71,6 +82,10 @@ export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
       setRarity("1");
       onOpenChange(false);
       onSuccess?.();
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("orbix:nft-updated"));
+      }
     } catch (err: any) {
       console.error("Error minting NFT:", err);
       toast.error(err?.message || "Failed to mint NFT", { id: toastId });
@@ -98,6 +113,7 @@ export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
             </Label>
             <Input
               id="mint-name"
+              maxLength={64}
               placeholder="e.g. Abyssal Current #01"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -112,6 +128,7 @@ export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
             </Label>
             <Textarea
               id="mint-desc"
+              maxLength={500}
               placeholder="Describe this artifact fixed beyond tides and time..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -138,14 +155,14 @@ export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
               Rarity Tier
             </Label>
             <Select value={rarity} onValueChange={setRarity}>
-              <SelectTrigger className="bg-white/5 border-white/15 text-cream">
-                <SelectValue placeholder="Select rarity tier" />
+              <SelectTrigger className="bg-white/5 border-white/15 text-cream font-mono">
+                <SelectValue placeholder="Select tier" />
               </SelectTrigger>
-              <SelectContent className="bg-space border-white/10 text-cream">
-                <SelectItem value="1">Common (Tier 1)</SelectItem>
-                <SelectItem value="2">Uncommon (Tier 2)</SelectItem>
-                <SelectItem value="3">Rare (Tier 3)</SelectItem>
-                <SelectItem value="4">Epic (Tier 4)</SelectItem>
+              <SelectContent className="bg-space border-white/10 text-cream font-mono">
+                <SelectItem value="1">Common</SelectItem>
+                <SelectItem value="2">Uncommon</SelectItem>
+                <SelectItem value="3">Rare</SelectItem>
+                <SelectItem value="4">Epic</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -165,7 +182,7 @@ export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
               className="orb-button text-cream font-mono text-xs px-6 py-2.5 rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>{loading ? "Minting..." : "Confirm Mint"}</span>
+              <span>{loading ? "Minting..." : "Mint Object"}</span>
             </Button>
           </DialogFooter>
         </form>

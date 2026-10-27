@@ -13,10 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
-  aptosClient,
   MARKETPLACE_CONTRACT_ADDRESS,
   aptToOctas,
   createEntryPayload,
+  confirmTransaction,
 } from "@/lib/aptosClient";
 import { Gavel, Loader2 } from "lucide-react";
 
@@ -69,7 +69,7 @@ export function CreateAuctionModal({ open, onOpenChange, nftId, onSuccess }: Pro
 
       const response: any = await signAndSubmitTransaction(payload);
       toast.loading("Waiting for confirmation...", { id: toastId });
-      await aptosClient.waitForTransaction(response.hash || response);
+      await confirmTransaction(response);
 
       toast.success("Auction created successfully!", { id: toastId });
       onOpenChange(false);
@@ -105,8 +105,8 @@ export function CreateAuctionModal({ open, onOpenChange, nftId, onSuccess }: Pro
             <Input
               id="start-price"
               type="number"
-              step="0.01"
-              min="0.01"
+              step="any"
+              min="0.0001"
               placeholder="e.g. 1.5"
               value={startPrice}
               onChange={(e) => setStartPrice(e.target.value)}
@@ -147,7 +147,7 @@ export function CreateAuctionModal({ open, onOpenChange, nftId, onSuccess }: Pro
               className="orb-button text-cream font-mono text-xs px-6 py-2.5 rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>{loading ? "Starting..." : "Start Auction"}</span>
+              <span>{loading ? "Creating..." : "Start Auction"}</span>
             </Button>
           </DialogFooter>
         </form>

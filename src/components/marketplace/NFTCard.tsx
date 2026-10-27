@@ -3,13 +3,14 @@ import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
-  aptosClient,
   MARKETPLACE_CONTRACT_ADDRESS,
   octasToApt,
   truncateAddress,
   getRarityInfo,
   createEntryPayload,
   sanitizeMediaUri,
+  confirmTransaction,
+  isSameAddress,
 } from "@/lib/aptosClient";
 import { NFT } from "@/types/marketplace";
 import { MakeOfferModal } from "./MakeOfferModal";
@@ -33,8 +34,9 @@ export function NFTCard({ nft, onRefresh }: Props) {
   const [transferOpen, setTransferOpen] = useState(false);
   const [buying, setBuying] = useState(false);
 
-  const isOwner =
-    account?.address && nft.owner && account.address.toLowerCase() === nft.owner.toLowerCase();
+  const isOwner = Boolean(
+    account?.address && nft.owner && isSameAddress(account.address, nft.owner),
+  );
   const rarityInfo = getRarityInfo(nft.rarity);
   const priceApt = octasToApt(nft.price);
 
@@ -61,7 +63,7 @@ export function NFTCard({ nft, onRefresh }: Props) {
 
       const response: any = await signAndSubmitTransaction(payload);
       toast.loading("Confirming purchase on Aptos...", { id: toastId });
-      await aptosClient.waitForTransaction(response.hash || response);
+      await confirmTransaction(response);
 
       toast.success(`Congratulations! You now own ${nft.name}.`, { id: toastId });
       onRefresh?.();

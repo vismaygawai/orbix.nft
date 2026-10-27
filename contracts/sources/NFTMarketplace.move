@@ -221,7 +221,8 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             let i = 0;
             while (i < len) {
                 let a = vector::borrow(auctions, i);
-                if (a.nft_id == nft_id && a.active && a.end_time > timestamp::now_seconds()) {
+                // Keep locked until finalize_auction sets a.active = false
+                if (a.nft_id == nft_id && a.active) {
                     return true
                 };
                 i = i + 1;

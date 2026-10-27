@@ -13,10 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
-  aptosClient,
   MARKETPLACE_CONTRACT_ADDRESS,
   aptToOctas,
   createEntryPayload,
+  confirmTransaction,
 } from "@/lib/aptosClient";
 import { Tag, Loader2 } from "lucide-react";
 
@@ -70,7 +70,7 @@ export function MakeOfferModal({ open, onOpenChange, nftId, onSuccess }: Props) 
 
       const response: any = await signAndSubmitTransaction(payload);
       toast.loading("Waiting for confirmation...", { id: toastId });
-      await aptosClient.waitForTransaction(response.hash || response);
+      await confirmTransaction(response);
 
       toast.success("Offer submitted successfully!", { id: toastId });
       onOpenChange(false);
@@ -106,8 +106,8 @@ export function MakeOfferModal({ open, onOpenChange, nftId, onSuccess }: Props) 
             <Input
               id="offer-price"
               type="number"
-              step="0.01"
-              min="0.01"
+              step="any"
+              min="0.0001"
               placeholder="e.g. 0.8"
               value={offerPrice}
               onChange={(e) => setOfferPrice(e.target.value)}

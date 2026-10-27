@@ -35,7 +35,12 @@ const CTA_POSTER = "/videos/CTA_video_poster.webp";
 const CARDS = [
   { src: "/videos/nft1.mp4", poster: "/videos/nft1_poster.webp", score: "8.7/10", tier: "Rare" },
   { src: "/videos/nft2.mp4", poster: "/videos/nft2_poster.webp", score: "9/10", tier: "Epic" },
-  { src: "/videos/nft3.mp4", poster: "/videos/nft3_poster.webp", score: "8.2/10", tier: "Uncommon" },
+  {
+    src: "/videos/nft3.mp4",
+    poster: "/videos/nft3_poster.webp",
+    score: "8.2/10",
+    tier: "Uncommon",
+  },
 ];
 const SOCIALS = [
   { Icon: Mail, label: "Email", href: "mailto:vismaygawai@gmail.com" },
@@ -282,7 +287,10 @@ function Index() {
       </section>
 
       {/* CTA */}
-      <section aria-label="Call to action" className="relative overflow-hidden min-h-[460px] sm:min-h-0">
+      <section
+        aria-label="Call to action"
+        className="relative overflow-hidden min-h-[460px] sm:min-h-0"
+      >
         {/* Seamless top blend from Collection section */}
         <div className="absolute inset-x-0 top-0 h-28 sm:h-40 bg-gradient-to-b from-space to-transparent pointer-events-none z-10" />
 

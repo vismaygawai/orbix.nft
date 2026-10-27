@@ -15,6 +15,8 @@ import {
   octasToApt,
   truncateAddress,
   createEntryPayload,
+  confirmTransaction,
+  isSameAddress,
 } from "@/lib/aptosClient";
 import { Offer } from "@/types/marketplace";
 import { Layers, Loader2, CheckCircle, Clock, XCircle } from "lucide-react";
@@ -82,7 +84,7 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
 
       const response: any = await signAndSubmitTransaction(payload);
       toast.loading("Confirming transfer...", { id: toastId });
-      await aptosClient.waitForTransaction(response.hash || response);
+      await confirmTransaction(response);
 
       toast.success("Offer accepted! NFT ownership transferred.", { id: toastId });
       fetchOffers();
@@ -109,7 +111,7 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
 
       const response: any = await signAndSubmitTransaction(payload);
       toast.loading("Confirming refund on Aptos...", { id: toastId });
-      await aptosClient.waitForTransaction(response.hash || response);
+      await confirmTransaction(response);
 
       toast.success("Offer cancelled! Escrowed APT refunded to your wallet.", { id: toastId });
       fetchOffers();
@@ -186,9 +188,7 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
               const isExpired = Date.now() / 1000 > offer.expiration;
               const canAccept = isOwner && offer.status === 0 && !isExpired;
               const isOfferBuyer = Boolean(
-                account?.address &&
-                  offer.buyer &&
-                  account.address.toLowerCase() === offer.buyer.toLowerCase(),
+                account?.address && offer.buyer && isSameAddress(account.address, offer.buyer),
               );
               const canCancel = isOfferBuyer && offer.status === 0;
 

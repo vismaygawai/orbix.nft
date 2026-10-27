@@ -22,7 +22,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Wallet, Copy, Check, ExternalLink, LogOut, ChevronDown, AlertTriangle } from "lucide-react";
+import {
+  Wallet,
+  Copy,
+  Check,
+  ExternalLink,
+  LogOut,
+  ChevronDown,
+  AlertTriangle,
+} from "lucide-react";
 import { truncateAddress, fetchAptosBalance, APTOS_NETWORK } from "@/lib/aptosClient";
 import { toast } from "sonner";
 
@@ -95,7 +103,9 @@ export function WalletButton() {
       const targetUrl = isMobile ? "https://petra.app" : wallet.url || "https://petra.app";
       window.open(targetUrl, "_blank", "noopener,noreferrer");
       if (isMobile) {
-        toast.info("Opening Petra Mobile App. You can also use Continue with Google for instant login without any app.");
+        toast.info(
+          "Opening Petra Mobile App. You can also use Continue with Google for instant login without any app.",
+        );
       } else {
         toast.info(`Please install ${wallet.name} extension to proceed.`);
       }
@@ -201,7 +211,8 @@ export function WalletButton() {
               <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               <div>
                 <span className="font-bold block">Network Mismatch</span>
-                Wallet is on <span className="underline uppercase">{network?.name}</span>. Contract is on <span className="underline uppercase">{APTOS_NETWORK}</span>.
+                Wallet is on <span className="underline uppercase">{network?.name}</span>. Contract
+                is on <span className="underline uppercase">{APTOS_NETWORK}</span>.
               </div>
             </div>
           )}

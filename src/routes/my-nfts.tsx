@@ -14,6 +14,8 @@ import {
   octasToApt,
   createEntryPayload,
   sanitizeMediaUri,
+  confirmTransaction,
+  isSameAddress,
 } from "@/lib/aptosClient";
 import { NFT, Offer } from "@/types/marketplace";
 import {
@@ -127,9 +129,7 @@ function MyNFTsPage() {
       }
 
       // Extract unique NFT IDs where this user has pending offers
-      const uniqueNftIds = Array.from(
-        new Set(rawUserOffers.map((o: any) => Number(o.nft_id))),
-      );
+      const uniqueNftIds = Array.from(new Set(rawUserOffers.map((o: any) => Number(o.nft_id))));
 
       const enrichedGroups = await Promise.all(
         uniqueNftIds.map(async (nftId) => {
@@ -146,14 +146,19 @@ function MyNFTsPage() {
             }),
           ]);
 
-          const nftName = nftDetailsRes ? decodeVectorToString(nftDetailsRes[2]) : `Object #${nftId}`;
-          const nftUri = nftDetailsRes ? decodeVectorToString(nftDetailsRes[4]) : "/videos/nft1.mp4";
+          const nftName = nftDetailsRes
+            ? decodeVectorToString(nftDetailsRes[2])
+            : `Object #${nftId}`;
+          const nftUri = nftDetailsRes
+            ? decodeVectorToString(nftDetailsRes[4])
+            : "/videos/nft1.mp4";
           const allOffersForNft: any[] = Array.isArray(nftOffersRes?.[0]) ? nftOffersRes[0] : [];
 
           const matches: OutgoingOfferItem[] = [];
           allOffersForNft.forEach((o: any, idx: number) => {
-            const isUser =
-              String(o.buyer).toLowerCase() === account.address.toLowerCase();
+            const isUser = Boolean(
+              o.buyer && account?.address && isSameAddress(o.buyer, account.address),
+            );
             const status = Number(o.status);
             if (isUser && status === 0) {
               matches.push({
@@ -191,6 +196,14 @@ function MyNFTsPage() {
     handleRefreshAll();
   }, [handleRefreshAll]);
 
+  useEffect(() => {
+    const handleUpdate = () => {
+      handleRefreshAll();
+    };
+    window.addEventListener("orbix:nft-updated", handleUpdate);
+    return () => window.removeEventListener("orbix:nft-updated", handleUpdate);
+  }, [handleRefreshAll]);
+
   const handleCancelOutgoingOffer = async (offer: OutgoingOfferItem) => {
     if (!connected || !account) return;
     const key = `${offer.nft_id}-${offer.offer_index}`;
@@ -208,12 +221,11 @@ function MyNFTsPage() {
 
       const response: any = await signAndSubmitTransaction(payload);
       toast.loading("Confirming escrow refund on Aptos...", { id: toastId });
-      await aptosClient.waitForTransaction(response.hash || response);
+      await confirmTransaction(response);
 
-      toast.success(
-        `Offer cancelled! ${octasToApt(offer.price)} APT refunded to your wallet.`,
-        { id: toastId },
-      );
+      toast.success(`Offer cancelled! ${octasToApt(offer.price)} APT refunded to your wallet.`, {
+        id: toastId,
+      });
       fetchMyOutgoingOffers();
     } catch (err: any) {
       console.error("Error cancelling offer:", err);
@@ -224,10 +236,7 @@ function MyNFTsPage() {
   };
 
   // Calculate total APT currently locked in outgoing offers
-  const totalEscrowedApt = outgoingOffers.reduce(
-    (sum, item) => sum + octasToApt(item.price),
-    0,
-  );
+  const totalEscrowedApt = outgoingOffers.reduce((sum, item) => sum + octasToApt(item.price), 0);
 
   return (
     <main className="min-h-screen bg-space text-cream py-12 px-4 sm:px-6 md:px-10 lg:px-16">
@@ -322,8 +331,8 @@ function MyNFTsPage() {
                     No Artifacts Found
                   </h3>
                   <p className="font-mono text-xs text-cream/60 leading-relaxed">
-                    You don't own any ocean artifacts yet. Mint a new digital object or explore
-                    the marketplace to start your collection.
+                    You don't own any ocean artifacts yet. Mint a new digital object or explore the
+                    marketplace to start your collection.
                   </p>
                   <Button
                     onClick={() => setMintOpen(true)}

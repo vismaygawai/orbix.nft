@@ -6,13 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { WalletButton } from "@/components/wallet/WalletButton";
 import { toast } from "sonner";
-import { aptosClient, MARKETPLACE_CONTRACT_ADDRESS, createEntryPayload } from "@/lib/aptosClient";
+import {
+  MARKETPLACE_CONTRACT_ADDRESS,
+  createEntryPayload,
+  confirmTransaction,
+} from "@/lib/aptosClient";
 import { Percent, ShieldCheck, Loader2, HelpCircle } from "lucide-react";
 
 export const Route = createFileRoute("/royalties")({
   head: () => ({
     meta: [
-      { title: "Creator Royalties — Orbix.Nft" },
+      { title: "Creator Royalties — orbix.nft" },
       {
         name: "description",
         content: "Configure creator royalties on secondary NFT sales on Aptos.",
@@ -51,7 +55,7 @@ function RoyaltiesPage() {
 
       const response: any = await signAndSubmitTransaction(payload);
       toast.loading("Confirming on blockchain...", { id: toastId });
-      await aptosClient.waitForTransaction(response.hash || response);
+      await confirmTransaction(response);
 
       toast.success(`Creator royalty successfully set to ${val}%!`, { id: toastId });
     } catch (err: any) {
@@ -86,7 +90,9 @@ function RoyaltiesPage() {
               <Percent className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-grotesk uppercase text-xl sm:text-2xl text-cream">Configure Rate</h2>
+              <h2 className="font-grotesk uppercase text-xl sm:text-2xl text-cream">
+                Configure Rate
+              </h2>
               <p className="text-xs font-mono text-cream/50">
                 Stored directly in the Move contract
               </p>
@@ -151,7 +157,9 @@ function RoyaltiesPage() {
               <ShieldCheck className="w-4 h-4" />
               <span>Smart Contract Protection</span>
             </div>
-            <h3 className="font-grotesk uppercase text-xl sm:text-2xl text-cream">How Royalties Function</h3>
+            <h3 className="font-grotesk uppercase text-xl sm:text-2xl text-cream">
+              How Royalties Function
+            </h3>
             <p className="text-xs font-mono text-cream/70 leading-relaxed">
               When a buyer purchases an NFT or accepts an offer, the Move smart contract checks the
               creator's address in its internal table:

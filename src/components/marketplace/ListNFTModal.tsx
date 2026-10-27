@@ -13,10 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
-  aptosClient,
   MARKETPLACE_CONTRACT_ADDRESS,
   aptToOctas,
   createEntryPayload,
+  confirmTransaction,
 } from "@/lib/aptosClient";
 import { ShoppingBag, Loader2, XCircle } from "lucide-react";
 
@@ -76,7 +76,7 @@ export function ListNFTModal({
 
       const response: any = await signAndSubmitTransaction(payload);
       toast.loading("Confirming on blockchain...", { id: toastId });
-      await aptosClient.waitForTransaction(response.hash || response);
+      await confirmTransaction(response);
 
       toast.success(isAlreadyForSale ? "Price updated successfully!" : "NFT listed for sale!", {
         id: toastId,
@@ -111,7 +111,7 @@ export function ListNFTModal({
 
       const response: any = await signAndSubmitTransaction(payload);
       toast.loading("Confirming delisting on Aptos...", { id: toastId });
-      await aptosClient.waitForTransaction(response.hash || response);
+      await confirmTransaction(response);
 
       toast.success(`Object #${nftId} removed from sale!`, { id: toastId });
       onOpenChange(false);
@@ -147,8 +147,8 @@ export function ListNFTModal({
             <Input
               id="list-price"
               type="number"
-              step="0.01"
-              min="0.01"
+              step="any"
+              min="0.0001"
               placeholder="e.g. 2.5"
               value={price}
               onChange={(e) => setPrice(e.target.value)}

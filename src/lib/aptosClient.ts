@@ -109,6 +109,28 @@ export function sanitizeMediaUri(uri: string): string {
   return "";
 }
 
+/**
+ * Normalizes an Aptos address to a lowercase 64-character hex string prefixed with 0x.
+ * Handles addresses with or without leading zeros, or objects returned by wallet adapters.
+ */
+export function normalizeAddress(addr: unknown): string {
+  if (!addr) return "";
+  const raw = String(addr).trim().toLowerCase();
+  const hex = raw.startsWith("0x") ? raw.slice(2) : raw;
+  if (!hex || /^0+$/.test(hex)) return "0x0";
+  return `0x${hex.padStart(64, "0")}`;
+}
+
+/**
+ * Safe equality check between two Aptos addresses.
+ * Resolves representation differences (leading zero padding, casing, object wrappers).
+ */
+export function isSameAddress(a: unknown, b: unknown): boolean {
+  const normA = normalizeAddress(a);
+  const normB = normalizeAddress(b);
+  return Boolean(normA && normB && normA !== "0x0" && normA === normB);
+}
+
 export function truncateAddress(address: string, start = 6, end = 4): string {
   if (!address) return "";
   if (address.length <= start + end) return address;
@@ -125,9 +147,7 @@ export function decodeVectorOrHexToString(value: any): string {
     if (value.startsWith("0x")) {
       try {
         const hex = value.slice(2);
-        const bytes = new Uint8Array(
-          hex.match(/[\da-f]{2}/gi)?.map((h) => parseInt(h, 16)) || [],
-        );
+        const bytes = new Uint8Array(hex.match(/[\da-f]{2}/gi)?.map((h) => parseInt(h, 16)) || []);
         return new TextDecoder().decode(bytes);
       } catch {
         return value;
@@ -224,4 +244,21 @@ export async function fetchAptosBalance(address: string): Promise<number> {
     }
   }
   return 0;
+}
+
+/**
+ * Confirms an Aptos transaction on-chain, throwing an error if the transaction aborted or failed.
+ */
+export async function confirmTransaction(response: any): Promise<string> {
+  const txHash = typeof response === "string" ? response : response?.hash;
+  if (!txHash) {
+    throw new Error("Transaction was not returned by wallet");
+  }
+  const tx: any = await aptosClient.waitForTransactionWithResult(txHash, {
+    checkSuccess: true,
+  });
+  if (tx && tx.success === false) {
+    throw new Error(tx.vm_status || "Transaction aborted on-chain");
+  }
+  return txHash;
 }

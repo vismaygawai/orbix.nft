@@ -26,7 +26,10 @@ export const Route = createFileRoute("/market")({
   head: () => ({
     meta: [
       { title: "Marketplace — orbix.nft" },
-      { name: "description", content: "Explore and trade rare Aptos ocean artifacts on orbix.nft." },
+      {
+        name: "description",
+        content: "Explore and trade rare Aptos ocean artifacts on orbix.nft.",
+      },
     ],
   }),
   component: MarketPage,
@@ -119,6 +122,11 @@ function MarketPage() {
 
   useEffect(() => {
     loadData();
+    const handleUpdate = () => {
+      loadData();
+    };
+    window.addEventListener("orbix:nft-updated", handleUpdate);
+    return () => window.removeEventListener("orbix:nft-updated", handleUpdate);
   }, []);
 
   const filteredNfts = useMemo(() => {
@@ -181,13 +189,18 @@ function MarketPage() {
       {/* Tabs & Filters */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* View Switcher */}
-        <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full sm:w-auto">
+        <Tabs
+          value={activeTab}
+          onValueChange={(v: any) => setActiveTab(v)}
+          className="w-full sm:w-auto"
+        >
           <TabsList className="liquid-glass border border-white/10 p-1 rounded-2xl w-full grid grid-cols-2 sm:flex sm:w-auto h-auto">
             <TabsTrigger
               value="marketplace"
               className="data-[state=active]:bg-neon data-[state=active]:text-cream rounded-xl font-mono text-xs px-3 sm:px-4 py-2 text-center"
             >
-              <ShoppingBag className="w-3.5 h-3.5 mr-1.5 shrink-0" /> Direct Listings ({nfts.length})
+              <ShoppingBag className="w-3.5 h-3.5 mr-1.5 shrink-0" /> Direct Listings ({nfts.length}
+              )
             </TabsTrigger>
             <TabsTrigger
               value="auctions"

@@ -13,9 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
-  aptosClient,
   MARKETPLACE_CONTRACT_ADDRESS,
   createEntryPayload,
+  confirmTransaction,
+  isSameAddress,
 } from "@/lib/aptosClient";
 import { Send, Loader2 } from "lucide-react";
 
@@ -44,7 +45,7 @@ export function TransferNFTModal({ open, onOpenChange, nftId, onSuccess }: Props
       return;
     }
 
-    if (cleanAddress.toLowerCase() === account.address.toLowerCase()) {
+    if (isSameAddress(cleanAddress, account.address)) {
       toast.error("Cannot transfer an NFT to your own address");
       return;
     }
@@ -61,7 +62,7 @@ export function TransferNFTModal({ open, onOpenChange, nftId, onSuccess }: Props
 
       const response: any = await signAndSubmitTransaction(payload);
       toast.loading("Confirming transfer on Aptos...", { id: toastId });
-      await aptosClient.waitForTransaction(response.hash || response);
+      await confirmTransaction(response);
 
       toast.success(`Object #${nftId} transferred successfully!`, { id: toastId });
       setRecipient("");

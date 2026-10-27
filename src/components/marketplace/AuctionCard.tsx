@@ -4,12 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
-  aptosClient,
   MARKETPLACE_CONTRACT_ADDRESS,
   octasToApt,
   aptToOctas,
   truncateAddress,
   createEntryPayload,
+  confirmTransaction,
+  normalizeAddress,
+  isSameAddress,
 } from "@/lib/aptosClient";
 import { Auction } from "@/types/marketplace";
 import { Clock, Gavel, Loader2, Award, CheckCircle2 } from "lucide-react";
@@ -50,25 +52,19 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
   }, [auction.end_time]);
 
   const hasBids = Boolean(
-    auction.highest_bidder &&
-      auction.highest_bidder !== "0x0" &&
-      auction.highest_bidder !== "0x0000000000000000000000000000000000000000000000000000000000000000",
+    auction.highest_bidder && normalizeAddress(auction.highest_bidder) !== "0x0",
   );
 
   const currentBidApt = octasToApt(auction.current_bid);
   const startPriceApt = octasToApt(auction.start_price);
-  const minBidApt = hasBids ? Number((currentBidApt + 0.01).toFixed(2)) : startPriceApt;
+  const minBidApt = hasBids ? Number((currentBidApt + 0.0001).toFixed(4)) : startPriceApt;
 
   const isHighestBidder = Boolean(
-    account?.address &&
-      hasBids &&
-      account.address.toLowerCase() === auction.highest_bidder.toLowerCase(),
+    account?.address && hasBids && isSameAddress(account.address, auction.highest_bidder),
   );
 
   const isSeller = Boolean(
-    account?.address &&
-      auction.seller &&
-      account.address.toLowerCase() === auction.seller.toLowerCase(),
+    account?.address && auction.seller && isSameAddress(account.address, auction.seller),
   );
 
   const handleBid = async (e: React.FormEvent) => {
@@ -112,7 +108,7 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
 
       const response: any = await signAndSubmitTransaction(payload);
       toast.loading("Confirming bid on chain...", { id: toastId });
-      await aptosClient.waitForTransaction(response.hash || response);
+      await confirmTransaction(response);
 
       toast.success("Bid placed successfully!", { id: toastId });
       setBidInput("");
@@ -150,7 +146,7 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
 
       const response: any = await signAndSubmitTransaction(payload);
       toast.loading("Confirming settlement on Aptos...", { id: toastId });
-      await aptosClient.waitForTransaction(response.hash || response);
+      await confirmTransaction(response);
 
       toast.success(
         hasBids
@@ -233,7 +229,7 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
           <div className="flex flex-col min-[380px]:flex-row gap-2">
             <Input
               type="number"
-              step="0.01"
+              step="any"
               min={minBidApt}
               placeholder={`Min ${minBidApt} APT`}
               value={bidInput}

@@ -204,7 +204,9 @@ function AnalyticsPage() {
           <div className="liquid-glass p-4 sm:p-8 rounded-3xl border border-white/10 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-grotesk uppercase text-xl sm:text-2xl text-cream">Sales by Rarity</h3>
+                <h3 className="font-grotesk uppercase text-xl sm:text-2xl text-cream">
+                  Sales by Rarity
+                </h3>
                 <p className="text-xs font-mono text-cream/60">
                   Volume (APT) distribution per tier
                 </p>
@@ -214,7 +216,10 @@ function AnalyticsPage() {
 
             <div className="h-72 w-full pt-4">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.salesByRarity} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <BarChart
+                  data={stats.salesByRarity}
+                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                   <XAxis dataKey="name" stroke="#ec4899" fontSize={11} fontFamily="monospace" />
                   <YAxis stroke="#ec4899" fontSize={11} fontFamily="monospace" />
@@ -239,7 +244,9 @@ function AnalyticsPage() {
           <div className="liquid-glass p-4 sm:p-8 rounded-3xl border border-white/10 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-grotesk uppercase text-xl sm:text-2xl text-cream">Historical Volume</h3>
+                <h3 className="font-grotesk uppercase text-xl sm:text-2xl text-cream">
+                  Historical Volume
+                </h3>
                 <p className="text-xs font-mono text-cream/60">Cumulative volume over time</p>
               </div>
               <TrendingUp className="w-5 h-5 text-neon" />
@@ -253,7 +260,10 @@ function AnalyticsPage() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={stats.salesHistory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <LineChart
+                    data={stats.salesHistory}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                     <XAxis dataKey="date" stroke="#ec4899" fontSize={11} fontFamily="monospace" />
                     <YAxis stroke="#ec4899" fontSize={11} fontFamily="monospace" />

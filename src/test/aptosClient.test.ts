@@ -8,6 +8,8 @@ import {
   encodeStringToVector,
   decodeVectorOrHexToString,
   getRarityInfo,
+  normalizeAddress,
+  isSameAddress,
 } from "../lib/aptosClient";
 
 describe("Aptos Client Utilities", () => {
@@ -29,7 +31,9 @@ describe("Aptos Client Utilities", () => {
   });
 
   it("sanitizes media URIs to prevent XSS payloads", () => {
-    expect(sanitizeMediaUri("https://arweave.net/artifact.png")).toBe("https://arweave.net/artifact.png");
+    expect(sanitizeMediaUri("https://arweave.net/artifact.png")).toBe(
+      "https://arweave.net/artifact.png",
+    );
     expect(sanitizeMediaUri("ipfs://QmHash123")).toBe("https://ipfs.io/ipfs/QmHash123");
     expect(sanitizeMediaUri("/videos/nft1.mp4")).toBe("/videos/nft1.mp4");
     expect(sanitizeMediaUri("javascript:alert(1)")).toBe("");
@@ -41,6 +45,15 @@ describe("Aptos Client Utilities", () => {
     const truncated = truncateAddress(address);
     expect(truncated).toBe("0x4bee...f6fb");
     expect(truncateAddress("")).toBe("");
+  });
+
+  it("normalizes Aptos addresses and checks equality correctly", () => {
+    const shortAddr = "0x4bee";
+    const paddedAddr = "0x0000000000000000000000000000000000000000000000000000000000004bee";
+    expect(normalizeAddress(shortAddr)).toBe(paddedAddr);
+    expect(isSameAddress(shortAddr, paddedAddr)).toBe(true);
+    expect(isSameAddress("0x0", "0x000")).toBe(false);
+    expect(isSameAddress("0x1", "0x2")).toBe(false);
   });
 
   it("encodes and decodes vector<u8> strings", () => {
@@ -57,7 +70,7 @@ describe("Aptos Client Utilities", () => {
     expect(decoded).toBe("Hello");
   });
 
-  it("returns appropriate rarity metadata", () => {
+  it("maps rarity levels correctly", () => {
     expect(getRarityInfo(1).label).toBe("Common");
     expect(getRarityInfo(2).label).toBe("Uncommon");
     expect(getRarityInfo(3).label).toBe("Rare");
