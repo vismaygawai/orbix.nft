@@ -288,7 +288,7 @@ export function WalletButton() {
         <DialogContent className="liquid-glass border-white/20 bg-space text-cream max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-grotesk text-xl uppercase tracking-wider text-neon">
-              Connect to Orbix.nft
+              Connect to orbix.nft
             </DialogTitle>
             <DialogDescription className="font-mono text-xs text-cream/60">
               Log in seamlessly with your Google account or connect an Aptos wallet.

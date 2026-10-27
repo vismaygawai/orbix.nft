@@ -77,12 +77,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Orbix.Nft — Beneath the Surface NFT Marketplace on Aptos" },
+      { title: "orbix.nft — Beneath the Surface NFT Marketplace on Aptos" },
       {
         name: "description",
         content: "Aptos-powered NFT Marketplace for ocean artifacts and digital collectibles.",
       },
-      { property: "og:title", content: "Orbix.Nft — Beneath the Surface" },
+      { property: "og:title", content: "orbix.nft — Beneath the Surface" },
       {
         property: "og:description",
         content:
