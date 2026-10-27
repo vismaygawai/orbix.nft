@@ -337,13 +337,14 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             assert!(payment >= nft_ref.price, EINSUFFICIENT_PAYMENT);
             assert!(buyer_addr != seller_addr, ECANNOT_BUY_OWN_NFT);
 
-            let marketplace_fee = (((payment as u128) * (MARKETPLACE_FEE_PERCENT as u128)) / 100 as u64);
-            let seller_revenue = payment - marketplace_fee;
+            let price = nft_ref.price;
+            let marketplace_fee = (((price as u128) * (MARKETPLACE_FEE_PERCENT as u128)) / 100 as u64);
+            let seller_revenue = price - marketplace_fee;
 
             // Fixed: Check creator_royalties for nft_ref.creator, not current owner
             if (table::contains(&marketplace.creator_royalties, creator_addr)) {
                 let creator_royalty = *table::borrow(&marketplace.creator_royalties, creator_addr);
-                let royalty_amount = (((payment as u128) * (creator_royalty as u128)) / 100 as u64);
+                let royalty_amount = (((price as u128) * (creator_royalty as u128)) / 100 as u64);
                 if (royalty_amount > 0 && creator_addr != seller_addr) {
                     seller_revenue = seller_revenue - royalty_amount;
                     coin::transfer<AptosCoin>(account, creator_addr, royalty_amount);
@@ -359,7 +360,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             nft_ref.for_sale = false;
             nft_ref.price = 0;
 
-            record_sale_stats(&mut marketplace.stats, payment, rarity, true);
+            record_sale_stats(&mut marketplace.stats, price, rarity, true);
         }
 
         #[view]
@@ -838,7 +839,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             let mut_i = 0;
             while (mut_i < auctions_len) {
                 let auction = vector::borrow(&marketplace.auctions, mut_i);
-                if (auction.active && auction.end_time > timestamp::now_seconds()) {
+                if (auction.active) {
                     vector::push_back(&mut active_auctions, *auction);
                 };
                 mut_i = mut_i + 1;

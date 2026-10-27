@@ -1,6 +1,7 @@
 export interface NFT {
   id: number;
   owner: string;
+  creator?: string;
   name: string;
   description: string;
   uri: string;
@@ -17,6 +18,7 @@ export interface ListedNFT {
 
 export interface Auction {
   nft_id: number;
+  seller?: string;
   start_price: number;
   current_bid: number;
   highest_bidder: string;
@@ -48,6 +50,6 @@ export interface MarketplaceStats {
   total_sales: number;
   total_volume: number;
   active_listings: number;
-  sales_history: SalesHistory[];
-  sales_by_rarity: RaritySales[];
+  sales_history?: SalesHistory[];
+  sales_by_rarity?: RaritySales[];
 }

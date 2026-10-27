@@ -25,8 +25,8 @@ import { Search, Filter, RefreshCw, ShoppingBag, Gavel, Loader2, AlertCircle } f
 export const Route = createFileRoute("/market")({
   head: () => ({
     meta: [
-      { title: "Marketplace — Orbix.Nft" },
-      { name: "description", content: "Explore and trade rare Aptos ocean artifacts on Orbix." },
+      { title: "Marketplace — orbix.nft" },
+      { name: "description", content: "Explore and trade rare Aptos ocean artifacts on orbix.nft." },
     ],
   }),
   component: MarketPage,
@@ -95,6 +95,7 @@ function MarketPage() {
         if (Array.isArray(auctionRes?.[0])) {
           const parsedAuctions: Auction[] = auctionRes[0].map((a: any) => ({
             nft_id: parseInt(a.nft_id, 10),
+            seller: a.seller,
             start_price: parseInt(a.start_price, 10),
             current_bid: parseInt(a.current_bid, 10),
             highest_bidder: a.highest_bidder,

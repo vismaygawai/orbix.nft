@@ -12,7 +12,7 @@ import {
   createEntryPayload,
 } from "@/lib/aptosClient";
 import { Auction } from "@/types/marketplace";
-import { Clock, Gavel, Loader2, Award } from "lucide-react";
+import { Clock, Gavel, Loader2, Award, CheckCircle2 } from "lucide-react";
 
 interface Props {
   auction: Auction;
@@ -25,6 +25,7 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
   const [timeLeft, setTimeLeft] = useState("");
   const [isEnded, setIsEnded] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
 
   useEffect(() => {
     const updateCountdown = () => {
@@ -48,13 +49,26 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
     return () => clearInterval(interval);
   }, [auction.end_time]);
 
+  const hasBids = Boolean(
+    auction.highest_bidder &&
+      auction.highest_bidder !== "0x0" &&
+      auction.highest_bidder !== "0x0000000000000000000000000000000000000000000000000000000000000000",
+  );
+
   const currentBidApt = octasToApt(auction.current_bid);
   const startPriceApt = octasToApt(auction.start_price);
-  const minBidApt = Number((currentBidApt + 0.1).toFixed(2));
+  const minBidApt = hasBids ? Number((currentBidApt + 0.01).toFixed(2)) : startPriceApt;
+
   const isHighestBidder = Boolean(
     account?.address &&
-    auction.highest_bidder &&
-    account.address.toLowerCase() === auction.highest_bidder.toLowerCase(),
+      hasBids &&
+      account.address.toLowerCase() === auction.highest_bidder.toLowerCase(),
+  );
+
+  const isSeller = Boolean(
+    account?.address &&
+      auction.seller &&
+      account.address.toLowerCase() === auction.seller.toLowerCase(),
   );
 
   const handleBid = async (e: React.FormEvent) => {
@@ -64,14 +78,23 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
       return;
     }
 
+    if (isSeller) {
+      toast.error("You cannot bid on your own auction");
+      return;
+    }
+
     if (isHighestBidder) {
       toast.error("You are already the highest bidder");
       return;
     }
 
     const amount = parseFloat(bidInput);
-    if (isNaN(amount) || amount <= currentBidApt) {
-      toast.error(`Bid must be strictly higher than current bid (${currentBidApt} APT)`);
+    if (isNaN(amount) || (hasBids ? amount <= currentBidApt : amount < startPriceApt)) {
+      toast.error(
+        hasBids
+          ? `Bid must be strictly higher than current bid (${currentBidApt} APT)`
+          : `First bid must be at least ${startPriceApt} APT`,
+      );
       return;
     }
 
@@ -110,6 +133,40 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
     }
   };
 
+  const handleFinalizeAuction = async () => {
+    if (!connected || !account) {
+      toast.error("Please connect your wallet to settle this auction");
+      return;
+    }
+
+    setFinalizing(true);
+    const toastId = toast.loading(`Settling auction for Object #${auction.nft_id}...`);
+
+    try {
+      const payload = createEntryPayload("finalize_auction", [
+        MARKETPLACE_CONTRACT_ADDRESS,
+        auction.nft_id.toString(),
+      ]);
+
+      const response: any = await signAndSubmitTransaction(payload);
+      toast.loading("Confirming settlement on Aptos...", { id: toastId });
+      await aptosClient.waitForTransaction(response.hash || response);
+
+      toast.success(
+        hasBids
+          ? "Auction settled! NFT transferred and APT proceeds disbursed."
+          : "Auction closed with no bids.",
+        { id: toastId },
+      );
+      onBidPlaced?.();
+    } catch (err: any) {
+      console.error("Error finalizing auction:", err);
+      toast.error(err?.message || "Failed to finalize auction", { id: toastId });
+    } finally {
+      setFinalizing(false);
+    }
+  };
+
   return (
     <div className="liquid-glass rounded-3xl p-6 border border-white/10 hover:border-neon/40 transition-all flex flex-col justify-between">
       <div>
@@ -120,7 +177,7 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
           <span
             className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono border ${
               isEnded
-                ? "bg-neutral-900 text-neutral-400 border-neutral-700"
+                ? "bg-amber-950 text-amber-300 border-amber-800"
                 : "bg-neon/15 text-neon border-neon/30"
             }`}
           >
@@ -136,16 +193,14 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
           </div>
 
           <div className="flex justify-between items-center text-xs font-mono text-cream/70">
-            <span>Current Highest Bid:</span>
+            <span>{hasBids ? "Current Highest Bid:" : "Minimum Bid:"}</span>
             <span className="text-neon font-bold text-base">{currentBidApt} APT</span>
           </div>
 
           <div className="flex justify-between items-center text-xs font-mono text-cream/70">
             <span>Highest Bidder:</span>
             <span className="text-cream font-medium">
-              {auction.highest_bidder && auction.highest_bidder !== "0x0"
-                ? truncateAddress(auction.highest_bidder)
-                : "No bids yet"}
+              {hasBids ? truncateAddress(auction.highest_bidder) : "No bids yet"}
             </span>
           </div>
 
@@ -158,9 +213,20 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
       </div>
 
       {isEnded ? (
-        <div className="mt-2 p-3 rounded-2xl bg-white/5 border border-white/10 text-center font-mono text-xs text-cream/60 flex items-center justify-center gap-2">
-          <Clock className="w-4 h-4 text-neutral-400" />
-          <span>Auction Concluded</span>
+        <div className="mt-2 space-y-2">
+          <Button
+            type="button"
+            disabled={finalizing || !connected}
+            onClick={handleFinalizeAuction}
+            className="w-full orb-button text-cream font-mono text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+          >
+            {finalizing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4" />
+            )}
+            <span>{finalizing ? "Settling..." : "Finalize & Settle Auction"}</span>
+          </Button>
         </div>
       ) : (
         <form onSubmit={handleBid} className="space-y-2 mt-2">
@@ -177,7 +243,7 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
             />
             <Button
               type="submit"
-              disabled={Boolean(loading || !connected || isHighestBidder)}
+              disabled={Boolean(loading || !connected || isHighestBidder || isSeller)}
               className="orb-button text-cream font-mono text-xs px-4 py-2 rounded-xl flex items-center justify-center gap-1.5 whitespace-nowrap w-full min-[380px]:w-auto cursor-pointer"
             >
               {loading ? (

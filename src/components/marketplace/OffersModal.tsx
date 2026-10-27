@@ -17,7 +17,7 @@ import {
   createEntryPayload,
 } from "@/lib/aptosClient";
 import { Offer } from "@/types/marketplace";
-import { Layers, Loader2, CheckCircle, Clock } from "lucide-react";
+import { Layers, Loader2, CheckCircle, Clock, XCircle } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -95,6 +95,33 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
     }
   };
 
+  const handleCancelOffer = async (offerIndex: number) => {
+    if (!account) return;
+    setActionLoading(offerIndex);
+    const toastId = toast.loading("Cancelling offer & refunding escrowed APT...");
+
+    try {
+      const payload = createEntryPayload("cancel_offer", [
+        MARKETPLACE_CONTRACT_ADDRESS,
+        nftId.toString(),
+        offerIndex.toString(),
+      ]);
+
+      const response: any = await signAndSubmitTransaction(payload);
+      toast.loading("Confirming refund on Aptos...", { id: toastId });
+      await aptosClient.waitForTransaction(response.hash || response);
+
+      toast.success("Offer cancelled! Escrowed APT refunded to your wallet.", { id: toastId });
+      fetchOffers();
+      onSuccess?.();
+    } catch (err: any) {
+      console.error("Error cancelling offer:", err);
+      toast.error(err?.message || "Failed to cancel offer", { id: toastId });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const getStatusBadge = (status: number, expiration: number) => {
     const isExpired = Date.now() / 1000 > expiration;
     if (status === 1) {
@@ -111,10 +138,17 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
         </span>
       );
     }
-    if (status === 3 || isExpired) {
+    if (status === 3) {
       return (
         <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-neutral-900 text-neutral-400 border border-neutral-700">
-          Expired
+          Cancelled
+        </span>
+      );
+    }
+    if (isExpired) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-neutral-900 text-amber-300 border border-amber-800">
+          Expired (Refundable)
         </span>
       );
     }
@@ -151,6 +185,12 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
             offers.map((offer, index) => {
               const isExpired = Date.now() / 1000 > offer.expiration;
               const canAccept = isOwner && offer.status === 0 && !isExpired;
+              const isOfferBuyer = Boolean(
+                account?.address &&
+                  offer.buyer &&
+                  account.address.toLowerCase() === offer.buyer.toLowerCase(),
+              );
+              const canCancel = isOfferBuyer && offer.status === 0;
 
               return (
                 <div
@@ -177,21 +217,40 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
                     </div>
                   </div>
 
-                  {canAccept && (
-                    <Button
-                      size="sm"
-                      disabled={actionLoading === index}
-                      onClick={() => handleAcceptOffer(index)}
-                      className="orb-button text-cream font-mono text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5"
-                    >
-                      {actionLoading === index ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <CheckCircle className="w-3.5 h-3.5" />
-                      )}
-                      <span>Accept</span>
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {canAccept && (
+                      <Button
+                        size="sm"
+                        disabled={actionLoading === index}
+                        onClick={() => handleAcceptOffer(index)}
+                        className="orb-button text-cream font-mono text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5"
+                      >
+                        {actionLoading === index ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-3.5 h-3.5" />
+                        )}
+                        <span>Accept</span>
+                      </Button>
+                    )}
+
+                    {canCancel && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={actionLoading === index}
+                        onClick={() => handleCancelOffer(index)}
+                        className="border-rose-800 bg-rose-950/60 hover:bg-rose-950 text-rose-300 font-mono text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {actionLoading === index ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <XCircle className="w-3.5 h-3.5" />
+                        )}
+                        <span>Cancel & Refund</span>
+                      </Button>
+                    )}
+                  </div>
                 </div>
               );
             })

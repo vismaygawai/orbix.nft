@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import {
   Dialog,
@@ -18,7 +18,7 @@ import {
   aptToOctas,
   createEntryPayload,
 } from "@/lib/aptosClient";
-import { ShoppingBag, Loader2 } from "lucide-react";
+import { ShoppingBag, Loader2, XCircle } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -40,6 +40,11 @@ export function ListNFTModal({
   const { connected, signAndSubmitTransaction } = useWallet();
   const [price, setPrice] = useState(currentPriceApt > 0 ? String(currentPriceApt) : "");
   const [loading, setLoading] = useState(false);
+  const [delisting, setDelisting] = useState(false);
+
+  useEffect(() => {
+    setPrice(currentPriceApt > 0 ? String(currentPriceApt) : "");
+  }, [currentPriceApt, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,16 +94,48 @@ export function ListNFTModal({
     }
   };
 
+  const handleCancelListing = async () => {
+    if (!connected) {
+      toast.error("Please connect your wallet first");
+      return;
+    }
+
+    setDelisting(true);
+    const toastId = toast.loading(`Delisting Object #${nftId} from marketplace...`);
+
+    try {
+      const payload = createEntryPayload("cancel_listing", [
+        MARKETPLACE_CONTRACT_ADDRESS,
+        nftId.toString(),
+      ]);
+
+      const response: any = await signAndSubmitTransaction(payload);
+      toast.loading("Confirming delisting on Aptos...", { id: toastId });
+      await aptosClient.waitForTransaction(response.hash || response);
+
+      toast.success(`Object #${nftId} removed from sale!`, { id: toastId });
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (err: any) {
+      console.error("Cancel listing error:", err);
+      toast.error(err?.message || "Failed to cancel listing", { id: toastId });
+    } finally {
+      setDelisting(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-space/95 border-white/10 text-cream backdrop-blur-xl sm:max-w-md rounded-3xl">
         <DialogHeader>
           <DialogTitle className="font-grotesk uppercase tracking-wide text-2xl text-cream flex items-center gap-2">
             <ShoppingBag className="w-5 h-5 text-neon" />
-            {isAlreadyForSale ? `Update Price for #${nftId}` : `List Object #${nftId} for Sale`}
+            {isAlreadyForSale ? `Manage Listing #${nftId}` : `List Object #${nftId} for Sale`}
           </DialogTitle>
           <DialogDescription className="text-cream/70 font-mono text-xs">
-            Set an asking price in APT for immediate purchase by other collectors.
+            {isAlreadyForSale
+              ? "Update your asking price in APT or remove this artifact from fixed-price sale."
+              : "Set an asking price in APT for immediate purchase by other collectors."}
           </DialogDescription>
         </DialogHeader>
 
@@ -120,18 +157,36 @@ export function ListNFTModal({
             />
           </div>
 
-          <DialogFooter className="pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-              className="text-cream/70 hover:text-cream hover:bg-white/5 w-full sm:w-auto"
-            >
-              Cancel
-            </Button>
+          <DialogFooter className="pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
+            {isAlreadyForSale ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={delisting || loading || !connected}
+                onClick={handleCancelListing}
+                className="border-rose-800 bg-rose-950/60 hover:bg-rose-950 text-rose-300 font-mono text-xs px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 w-full sm:w-auto cursor-pointer"
+              >
+                {delisting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <XCircle className="w-4 h-4" />
+                )}
+                <span>{delisting ? "Delisting..." : "Delist NFT"}</span>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+                className="text-cream/70 hover:text-cream hover:bg-white/5 w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+            )}
+
             <Button
               type="submit"
-              disabled={loading || !connected}
+              disabled={loading || delisting || !connected}
               className="orb-button text-cream font-mono text-xs px-6 py-2.5 rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}

@@ -16,7 +16,8 @@ import { MakeOfferModal } from "./MakeOfferModal";
 import { OffersModal } from "./OffersModal";
 import { CreateAuctionModal } from "./CreateAuctionModal";
 import { ListNFTModal } from "./ListNFTModal";
-import { ShoppingBag, Tag, Gavel, Layers, Loader2 } from "lucide-react";
+import { TransferNFTModal } from "./TransferNFTModal";
+import { ShoppingBag, Tag, Gavel, Layers, Loader2, Send } from "lucide-react";
 
 interface Props {
   nft: NFT;
@@ -29,6 +30,7 @@ export function NFTCard({ nft, onRefresh }: Props) {
   const [offersListOpen, setOffersListOpen] = useState(false);
   const [auctionOpen, setAuctionOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [buying, setBuying] = useState(false);
 
   const isOwner =
@@ -186,7 +188,7 @@ export function NFTCard({ nft, onRefresh }: Props) {
                 className="liquid-glass text-cream border-white/10 hover:bg-white/10 font-mono text-xs flex items-center justify-center gap-1 rounded-xl"
               >
                 <ShoppingBag className="w-3 h-3 text-neon" />
-                <span>{nft.for_sale ? "Edit Price" : "List for Sale"}</span>
+                <span>{nft.for_sale ? "Manage Sale" : "List for Sale"}</span>
               </Button>
             )}
 
@@ -214,15 +216,26 @@ export function NFTCard({ nft, onRefresh }: Props) {
           </div>
 
           {isOwner && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setOffersListOpen(true)}
-              className="w-full text-cream/70 hover:text-cream hover:bg-white/5 font-mono text-[11px] h-7 flex items-center justify-center gap-1"
-            >
-              <Layers className="w-3 h-3" />
-              <span>Review Incoming Offers</span>
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setOffersListOpen(true)}
+                className="text-cream/70 hover:text-cream hover:bg-white/5 font-mono text-[11px] h-7 flex items-center justify-center gap-1 rounded-lg"
+              >
+                <Layers className="w-3 h-3 text-neon" />
+                <span>Offers</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTransferOpen(true)}
+                className="text-cream/70 hover:text-cream hover:bg-white/5 font-mono text-[11px] h-7 flex items-center justify-center gap-1 rounded-lg"
+              >
+                <Send className="w-3 h-3 text-neon" />
+                <span>Transfer</span>
+              </Button>
+            </div>
           )}
         </div>
       </article>
@@ -255,6 +268,13 @@ export function NFTCard({ nft, onRefresh }: Props) {
         nftId={nft.id}
         isAlreadyForSale={nft.for_sale}
         currentPriceApt={priceApt}
+        onSuccess={onRefresh}
+      />
+
+      <TransferNFTModal
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        nftId={nft.id}
         onSuccess={onRefresh}
       />
     </>
