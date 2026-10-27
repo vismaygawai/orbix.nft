@@ -157,7 +157,12 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
         </div>
       </div>
 
-      {!isEnded && (
+      {isEnded ? (
+        <div className="mt-2 p-3 rounded-2xl bg-white/5 border border-white/10 text-center font-mono text-xs text-cream/60 flex items-center justify-center gap-2">
+          <Clock className="w-4 h-4 text-neutral-400" />
+          <span>Auction Concluded</span>
+        </div>
+      ) : (
         <form onSubmit={handleBid} className="space-y-2 mt-2">
           <div className="flex flex-col min-[380px]:flex-row gap-2">
             <Input

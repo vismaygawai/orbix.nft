@@ -48,8 +48,8 @@ export function MakeOfferModal({ open, onOpenChange, nftId, onSuccess }: Props) 
       return;
     }
 
-    if (isNaN(hoursNum) || hoursNum < 1) {
-      toast.error("Expiration must be at least 1 hour");
+    if (isNaN(hoursNum) || hoursNum < 1 || hoursNum > 720) {
+      toast.error("Offer expiration must be between 1 hour and 30 days (720 hours)");
       return;
     }
 

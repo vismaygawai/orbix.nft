@@ -30,7 +30,7 @@ describe("Aptos Client Utilities", () => {
 
   it("sanitizes media URIs to prevent XSS payloads", () => {
     expect(sanitizeMediaUri("https://arweave.net/artifact.png")).toBe("https://arweave.net/artifact.png");
-    expect(sanitizeMediaUri("ipfs://QmHash123")).toBe("ipfs://QmHash123");
+    expect(sanitizeMediaUri("ipfs://QmHash123")).toBe("https://ipfs.io/ipfs/QmHash123");
     expect(sanitizeMediaUri("/videos/nft1.mp4")).toBe("/videos/nft1.mp4");
     expect(sanitizeMediaUri("javascript:alert(1)")).toBe("");
     expect(sanitizeMediaUri("data:text/html,<script>alert(1)</script>")).toBe("");

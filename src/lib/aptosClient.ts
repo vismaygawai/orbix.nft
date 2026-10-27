@@ -55,8 +55,14 @@ export const OCTAS_PER_APT = 100_000_000;
  * @returns Floating point APT amount
  */
 export function octasToApt(octas: number | string | bigint): number {
-  const num = typeof octas === "bigint" ? Number(octas) : Number(octas);
-  return Number((num / OCTAS_PER_APT).toFixed(4));
+  try {
+    const val = BigInt(octas);
+    const whole = Number(val / 100_000_000n);
+    const fraction = Number(val % 100_000_000n) / 1e8;
+    return Number((whole + fraction).toFixed(4));
+  } catch {
+    return 0;
+  }
 }
 
 /**
@@ -97,10 +103,12 @@ export function sanitizeMediaUri(uri: string): string {
   if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
     return trimmed;
   }
+  if (trimmed.startsWith("ipfs://")) {
+    return trimmed.replace("ipfs://", "https://ipfs.io/ipfs/");
+  }
   if (
     trimmed.startsWith("https://") ||
-    trimmed.startsWith("http://") ||
-    trimmed.startsWith("ipfs://")
+    trimmed.startsWith("http://")
   ) {
     return trimmed;
   }

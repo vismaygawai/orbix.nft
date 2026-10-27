@@ -137,6 +137,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             
             assert!(nft_ref.for_sale, 400);
             assert!(payment >= nft_ref.price, 401);
+            assert!(buyer_addr != nft_ref.owner, 402); // Cannot purchase own NFT
             
             // Calculate fees without requiring creator royalties
             let marketplace_fee = (payment * MARKETPLACE_FEE_PERCENT) / 100;
@@ -379,6 +380,8 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             assert!(timestamp::now_seconds() < auction.end_time, EAUCTION_EXPIRED);
             assert!(bid_amount > auction.current_bid, EBID_TOO_LOW);
             assert!(buyer_addr != auction.highest_bidder, EALREADY_HIGHEST_BIDDER);
+            let nft_info = vector::borrow(&marketplace.nfts, auction.nft_id);
+            assert!(buyer_addr != nft_info.owner, 1018); // Seller cannot bid on own auction
             
             // Return previous bid to previous bidder if exists
             if (auction.highest_bidder != @0x0) {
@@ -633,6 +636,156 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             };
             
             user_offers
+        }
+// Cancel / delist active NFT listing
+        public entry fun cancel_listing(
+            account: &signer,
+            marketplace_addr: address,
+            nft_id: u64
+        ) acquires Marketplace {
+            let marketplace = borrow_global_mut<Marketplace>(marketplace_addr);
+            let nft_ref = vector::borrow_mut(&mut marketplace.nfts, nft_id);
+
+            assert!(nft_ref.owner == signer::address_of(account), 100);
+            assert!(nft_ref.for_sale, 103);
+
+            nft_ref.for_sale = false;
+            nft_ref.price = 0;
+        }
+
+        // Settle / finalize expired auction
+        public entry fun finalize_auction(
+            account: &signer,
+            marketplace_addr: address,
+            nft_id: u64
+        ) acquires Marketplace {
+            let marketplace = borrow_global_mut<Marketplace>(marketplace_addr);
+            let caller = signer::address_of(account);
+
+            let auctions_len = vector::length(&marketplace.auctions);
+            let mut_i = 0;
+            let found = false;
+            let auction_index = 0;
+
+            while (mut_i < auctions_len) {
+                let auction = vector::borrow(&marketplace.auctions, mut_i);
+                if (auction.nft_id == nft_id && auction.active) {
+                    found = true;
+                    auction_index = mut_i;
+                    break
+                };
+                mut_i = mut_i + 1;
+            };
+
+            assert!(found, ENFT_NOT_FOUND);
+            let auction = vector::borrow_mut(&mut marketplace.auctions, auction_index);
+            assert!(timestamp::now_seconds() >= auction.end_time, 1012);
+            auction.active = false;
+
+            let nft_ref = vector::borrow_mut(&mut marketplace.nfts, nft_id);
+            let seller = nft_ref.owner;
+
+            assert!(caller == seller || caller == auction.highest_bidder || caller == marketplace_addr, 1013);
+
+            if (auction.highest_bidder != @0x0) {
+                nft_ref.owner = auction.highest_bidder;
+                nft_ref.for_sale = false;
+                nft_ref.price = 0;
+
+                let stats = &mut marketplace.stats;
+                stats.total_sales = stats.total_sales + 1;
+                stats.total_volume = stats.total_volume + auction.current_bid;
+            } else {
+                nft_ref.for_sale = false;
+            };
+        }
+
+        // Cancel auction with zero bids
+        public entry fun cancel_auction(
+            account: &signer,
+            marketplace_addr: address,
+            nft_id: u64
+        ) acquires Marketplace {
+            let marketplace = borrow_global_mut<Marketplace>(marketplace_addr);
+            let seller = signer::address_of(account);
+
+            let auctions_len = vector::length(&marketplace.auctions);
+            let mut_i = 0;
+            let found = false;
+            let auction_index = 0;
+
+            while (mut_i < auctions_len) {
+                let auction = vector::borrow(&marketplace.auctions, mut_i);
+                if (auction.nft_id == nft_id && auction.active) {
+                    found = true;
+                    auction_index = mut_i;
+                    break
+                };
+                mut_i = mut_i + 1;
+            };
+
+            assert!(found, ENFT_NOT_FOUND);
+            let auction = vector::borrow_mut(&mut marketplace.auctions, auction_index);
+            let nft_ref = vector::borrow_mut(&mut marketplace.nfts, nft_id);
+
+            assert!(nft_ref.owner == seller, 100);
+            assert!(auction.highest_bidder == @0x0, 1014);
+
+            auction.active = false;
+            nft_ref.for_sale = false;
+        }
+
+        // Cancel pending buyer offer
+        public entry fun cancel_offer(
+            account: &signer,
+            marketplace_addr: address,
+            nft_id: u64,
+            offer_index: u64
+        ) acquires Marketplace {
+            let marketplace = borrow_global_mut<Marketplace>(marketplace_addr);
+            let buyer_addr = signer::address_of(account);
+
+            assert!(table::contains(&marketplace.offers, nft_id), 1015);
+            let offers = table::borrow_mut(&mut marketplace.offers, nft_id);
+            let offer = vector::borrow_mut(offers, offer_index);
+
+            assert!(offer.buyer == buyer_addr, 1016);
+            assert!(offer.status == 0, 1017);
+
+            offer.status = 2; // Cancelled
+        }
+
+        // Batch view function to prevent frontend N+1 RPC waterfalls
+        #[view]
+        public fun get_multiple_nft_details(
+            marketplace_addr: address,
+            nft_ids: vector<u64>
+        ): (vector<u64>, vector<address>, vector<u64>, vector<bool>, vector<u8>) acquires Marketplace {
+            let marketplace = borrow_global<Marketplace>(marketplace_addr);
+            let ids = vector::empty<u64>();
+            let owners = vector::empty<address>();
+            let prices = vector::empty<u64>();
+            let for_sales = vector::empty<bool>();
+            let rarities = vector::empty<u8>();
+
+            let len = vector::length(&nft_ids);
+            let i = 0;
+            let nfts_count = vector::length(&marketplace.nfts);
+
+            while (i < len) {
+                let id = *vector::borrow(&nft_ids, i);
+                if (id < nfts_count) {
+                    let nft = vector::borrow(&marketplace.nfts, id);
+                    vector::push_back(&mut ids, nft.id);
+                    vector::push_back(&mut owners, nft.owner);
+                    vector::push_back(&mut prices, nft.price);
+                    vector::push_back(&mut for_sales, nft.for_sale);
+                    vector::push_back(&mut rarities, nft.rarity);
+                };
+                i = i + 1;
+            };
+
+            (ids, owners, prices, for_sales, rarities)
         }
     }
 }

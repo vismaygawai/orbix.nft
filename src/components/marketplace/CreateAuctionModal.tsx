@@ -48,8 +48,8 @@ export function CreateAuctionModal({ open, onOpenChange, nftId, onSuccess }: Pro
       return;
     }
 
-    if (isNaN(hoursNum) || hoursNum < 1) {
-      toast.error("Auction duration must be at least 1 hour");
+    if (isNaN(hoursNum) || hoursNum < 1 || hoursNum > 720) {
+      toast.error("Auction duration must be between 1 hour and 30 days (720 hours)");
       return;
     }
 

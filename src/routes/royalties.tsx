@@ -35,8 +35,8 @@ function RoyaltiesPage() {
     }
 
     const val = parseInt(royalty, 10);
-    if (isNaN(val) || val < 0 || val > 30) {
-      toast.error("Royalty percentage must be between 0% and 30%");
+    if (isNaN(val) || val < 0 || val > 30 || !Number.isInteger(Number(royalty))) {
+      toast.error("Royalty percentage must be an integer between 0% and 30%");
       return;
     }
 
