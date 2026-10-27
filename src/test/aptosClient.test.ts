@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   octasToApt,
   aptToOctas,
+  aptToOctasBigInt,
+  sanitizeMediaUri,
   truncateAddress,
   encodeStringToVector,
   decodeVectorOrHexToString,
@@ -19,6 +21,19 @@ describe("Aptos Client Utilities", () => {
     expect(aptToOctas(1)).toBe(100_000_000);
     expect(aptToOctas(0.5)).toBe(50_000_000);
     expect(aptToOctas(2.5)).toBe(250_000_000);
+  });
+
+  it("converts micro fractions of APT without floating point drift", () => {
+    expect(aptToOctas("0.00000001")).toBe(1);
+    expect(aptToOctasBigInt("100.12345678")).toBe(10012345678n);
+  });
+
+  it("sanitizes media URIs to prevent XSS payloads", () => {
+    expect(sanitizeMediaUri("https://arweave.net/artifact.png")).toBe("https://arweave.net/artifact.png");
+    expect(sanitizeMediaUri("ipfs://QmHash123")).toBe("ipfs://QmHash123");
+    expect(sanitizeMediaUri("/videos/nft1.mp4")).toBe("/videos/nft1.mp4");
+    expect(sanitizeMediaUri("javascript:alert(1)")).toBe("");
+    expect(sanitizeMediaUri("data:text/html,<script>alert(1)</script>")).toBe("");
   });
 
   it("truncates addresses for UI display", () => {

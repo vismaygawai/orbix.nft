@@ -22,7 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Wallet, Copy, Check, ExternalLink, LogOut, ChevronDown } from "lucide-react";
+import { Wallet, Copy, Check, ExternalLink, LogOut, ChevronDown, AlertTriangle } from "lucide-react";
 import { truncateAddress, fetchAptosBalance, APTOS_NETWORK } from "@/lib/aptosClient";
 import { toast } from "sonner";
 
@@ -161,15 +161,26 @@ export function WalletButton() {
       !w.name.toLowerCase().includes("aptos connect"),
   );
 
+  const isNetworkMismatch =
+    connected &&
+    Boolean(network?.name) &&
+    network?.name?.toLowerCase() !== APTOS_NETWORK.toLowerCase();
+
   if (connected && account) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            className="liquid-glass text-cream border-white/20 hover:bg-white/10 font-mono text-xs sm:text-sm font-bold px-2.5 sm:px-4 py-1.5 sm:py-2 h-auto flex items-center gap-1.5 sm:gap-2 cursor-pointer max-w-[200px] sm:max-w-none"
+            className={`liquid-glass text-cream border-white/20 hover:bg-white/10 font-mono text-xs sm:text-sm font-bold px-2.5 sm:px-4 py-1.5 sm:py-2 h-auto flex items-center gap-1.5 sm:gap-2 cursor-pointer max-w-[200px] sm:max-w-none ${
+              isNetworkMismatch ? "border-amber-400/50" : ""
+            }`}
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                isNetworkMismatch ? "bg-amber-400 animate-ping" : "bg-emerald-400 animate-pulse"
+              }`}
+            />
             <span className="hidden sm:inline">{balance !== null ? `${balance} APT` : "..."}</span>
             <span className="hidden sm:inline text-cream/50">|</span>
             <span className="text-neon truncate">{truncateAddress(account.address)}</span>
@@ -184,6 +195,16 @@ export function WalletButton() {
           <DropdownMenuLabel className="font-mono text-xs uppercase tracking-wider text-cream/60">
             Connected Wallet
           </DropdownMenuLabel>
+
+          {isNetworkMismatch && (
+            <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-mono flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold block">Network Mismatch</span>
+                Wallet is on <span className="underline uppercase">{network?.name}</span>. Contract is on <span className="underline uppercase">{APTOS_NETWORK}</span>.
+              </div>
+            </div>
+          )}
 
           <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-xs font-mono">
             <div className="flex justify-between items-center text-cream/60 mb-1">

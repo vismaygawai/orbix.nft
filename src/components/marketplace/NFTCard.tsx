@@ -9,6 +9,7 @@ import {
   truncateAddress,
   getRarityInfo,
   createEntryPayload,
+  sanitizeMediaUri,
 } from "@/lib/aptosClient";
 import { NFT } from "@/types/marketplace";
 import { MakeOfferModal } from "./MakeOfferModal";
@@ -70,8 +71,9 @@ export function NFTCard({ nft, onRefresh }: Props) {
     }
   };
 
+  const safeUri = sanitizeMediaUri(nft.uri) || "/videos/nft1.mp4";
   const isVideo =
-    nft.uri.endsWith(".mp4") || nft.uri.endsWith(".webm") || nft.uri.includes("cloudfront.net");
+    safeUri.endsWith(".mp4") || safeUri.endsWith(".webm") || safeUri.includes("cloudfront.net");
 
   return (
     <>
@@ -81,7 +83,7 @@ export function NFTCard({ nft, onRefresh }: Props) {
           <div className="relative pb-[100%] rounded-2xl overflow-hidden bg-white/5 mb-4">
             {isVideo ? (
               <video
-                src={nft.uri}
+                src={safeUri}
                 autoPlay
                 loop
                 muted
@@ -91,7 +93,7 @@ export function NFTCard({ nft, onRefresh }: Props) {
               />
             ) : (
               <img
-                src={nft.uri}
+                src={safeUri}
                 alt={nft.name}
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).src =

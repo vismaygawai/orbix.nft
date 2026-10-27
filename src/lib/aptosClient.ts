@@ -61,12 +61,50 @@ export function octasToApt(octas: number | string | bigint): number {
 
 /**
  * Converts human-readable APT into blockchain Octas (integer).
+ * Uses string-based decimal splitting to avoid floating point precision issues (e.g. 0.00000001).
  *
  * @param apt - APT amount as number or string
  * @returns Integer Octas value
  */
 export function aptToOctas(apt: number | string): number {
-  return Math.round(Number(apt) * OCTAS_PER_APT);
+  const str = String(apt).trim();
+  if (!str || isNaN(Number(str))) return 0;
+  const [whole, fraction = ""] = str.split(".");
+  const paddedFraction = fraction.padEnd(8, "0").slice(0, 8);
+  const cleanWhole = (whole || "0").replace(/^0+(?=\d)/, "") || "0";
+  return Number(BigInt(`${cleanWhole}${paddedFraction}`));
+}
+
+/**
+ * High-precision string/BigInt conversion for Aptos payloads exceeding Number.MAX_SAFE_INTEGER.
+ */
+export function aptToOctasBigInt(apt: number | string): bigint {
+  const str = String(apt).trim();
+  if (!str || isNaN(Number(str))) return 0n;
+  const [whole, fraction = ""] = str.split(".");
+  const paddedFraction = fraction.padEnd(8, "0").slice(0, 8);
+  const cleanWhole = (whole || "0").replace(/^0+(?=\d)/, "") || "0";
+  return BigInt(`${cleanWhole}${paddedFraction}`);
+}
+
+/**
+ * Sanitizes user-supplied media URIs to prevent XSS (e.g. javascript:, data:text/html).
+ * Only allows safe protocols: https://, http://, ipfs://, or relative site paths.
+ */
+export function sanitizeMediaUri(uri: string): string {
+  if (!uri || typeof uri !== "string") return "";
+  const trimmed = uri.trim();
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+    return trimmed;
+  }
+  if (
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("ipfs://")
+  ) {
+    return trimmed;
+  }
+  return "";
 }
 
 /**
