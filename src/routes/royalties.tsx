@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,9 +7,11 @@ import { Label } from "@/components/ui/label";
 import { WalletButton } from "@/components/wallet/WalletButton";
 import { toast } from "sonner";
 import {
+  aptosClient,
   MARKETPLACE_CONTRACT_ADDRESS,
   createEntryPayload,
   confirmTransaction,
+  APTOS_NETWORK,
 } from "@/lib/aptosClient";
 import { Percent, ShieldCheck, Loader2, HelpCircle } from "lucide-react";
 
@@ -28,12 +30,48 @@ export const Route = createFileRoute("/royalties")({
 
 function RoyaltiesPage() {
   const { account, connected, signAndSubmitTransaction } = useWallet();
+  const walletAddress = account?.address ? String(account.address) : "";
   const [royalty, setRoyalty] = useState("5");
+  const [currentOnChainRoyalty, setCurrentOnChainRoyalty] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fetchingRate, setFetchingRate] = useState(false);
+
+  useEffect(() => {
+    if (!connected || !walletAddress) {
+      setCurrentOnChainRoyalty(null);
+      return;
+    }
+
+    let isMounted = true;
+    setFetchingRate(true);
+    aptosClient
+      .view({
+        function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_creator_royalty`,
+        type_arguments: [],
+        arguments: [MARKETPLACE_CONTRACT_ADDRESS, walletAddress],
+      })
+      .then((res: any) => {
+        if (isMounted && Array.isArray(res) && res[0] !== undefined) {
+          const rate = parseInt(res[0], 10);
+          setCurrentOnChainRoyalty(rate);
+          setRoyalty(rate.toString());
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not load creator royalty rate:", err);
+      })
+      .finally(() => {
+        if (isMounted) setFetchingRate(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [connected, walletAddress]);
 
   const handleSetRoyalty = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!connected || !account) {
+    if (!connected || !walletAddress) {
       toast.error("Please connect your wallet first");
       return;
     }
@@ -58,6 +96,7 @@ function RoyaltiesPage() {
       await confirmTransaction(response);
 
       toast.success(`Creator royalty successfully set to ${val}%!`, { id: toastId });
+      setCurrentOnChainRoyalty(val);
     } catch (err: any) {
       console.error("Royalty setting error:", err);
       toast.error(err?.message || "Failed to set creator royalty", { id: toastId });
@@ -115,7 +154,14 @@ function RoyaltiesPage() {
                   <Label htmlFor="royalty" className="text-xs font-mono uppercase text-cream/80">
                     Royalty Percentage (0% - 30%)
                   </Label>
-                  <span className="text-xs font-mono text-neon font-bold">{royalty}%</span>
+                  <div className="flex items-center gap-2">
+                    {currentOnChainRoyalty !== null && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800">
+                        Current: {currentOnChainRoyalty}%
+                      </span>
+                    )}
+                    <span className="text-xs font-mono text-neon font-bold">{royalty}%</span>
+                  </div>
                 </div>
                 <Input
                   id="royalty"
@@ -192,7 +238,7 @@ function RoyaltiesPage() {
             <ShieldCheck className="w-8 h-8 text-neon shrink-0" />
             <div className="text-xs font-mono text-cream/70">
               All royalty configurations are decentralized, immutable between changes, and trustless
-              on Aptos Devnet.
+              on Aptos {APTOS_NETWORK.toUpperCase()}.
             </div>
           </div>
         </div>

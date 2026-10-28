@@ -92,7 +92,7 @@ export function Footer() {
           {/* Bottom Metabar */}
           <div className="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-[11px] sm:text-xs uppercase tracking-widest text-cream/40">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-              <span>DEPLOYED ON APTOS DEVNET</span>
+              <span>DEPLOYED ON APTOS {APTOS_NETWORK.toUpperCase()}</span>
               <span className="hidden sm:inline">•</span>
               <span className="flex items-center gap-1.5">
                 <span>CONTRACT {truncateAddress(MARKETPLACE_CONTRACT_ADDRESS, 6, 4)}</span>

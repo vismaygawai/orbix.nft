@@ -10,7 +10,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +17,7 @@ import {
   MARKETPLACE_CONTRACT_ADDRESS,
   octasToApt,
   RARITY_MAP,
+  APTOS_NETWORK,
 } from "@/lib/aptosClient";
 import { TrendingUp, Activity, Layers, RefreshCw, Loader2, BarChart3 } from "lucide-react";
 
@@ -55,46 +55,48 @@ function AnalyticsPage() {
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      // 1. Fetch marketplace basic stats
-      const basicStats: any = await aptosClient
-        .view({
-          function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_marketplace_stats`,
-          arguments: [MARKETPLACE_CONTRACT_ADDRESS],
-          type_arguments: [],
-        })
-        .catch(() => [0, 0, 0, []]);
+      // Parallelize queries across basic stats, rarity sales, and active listings
+      const [basicStats, rarityStats, forSaleRes]: [any, any, any] = await Promise.all([
+        aptosClient
+          .view({
+            function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_marketplace_stats`,
+            arguments: [MARKETPLACE_CONTRACT_ADDRESS],
+            type_arguments: [],
+          })
+          .catch(() => [0, 0, 0, []]),
+        aptosClient
+          .view({
+            function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_sales_by_rarity`,
+            arguments: [MARKETPLACE_CONTRACT_ADDRESS],
+            type_arguments: [],
+          })
+          .catch(() => [[]]),
+        aptosClient
+          .view({
+            function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_all_nfts_for_sale`,
+            type_arguments: [],
+            arguments: [MARKETPLACE_CONTRACT_ADDRESS, "100", "0"],
+          })
+          .catch(() => [[]]),
+      ]);
 
-      // 2. Fetch sales by rarity
-      const rarityStats: any = await aptosClient
-        .view({
-          function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_sales_by_rarity`,
-          arguments: [MARKETPLACE_CONTRACT_ADDRESS],
-          type_arguments: [],
-        })
-        .catch(() => [[]]);
-
-      // 3. Fallback active listings count from get_all_nfts_for_sale
       let liveActiveListings = Number(basicStats?.[2] || 0);
-      try {
-        const forSaleRes: any = await aptosClient.view({
-          function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_all_nfts_for_sale`,
-          type_arguments: [],
-          arguments: [MARKETPLACE_CONTRACT_ADDRESS, "100", "0"],
-        });
-        if (Array.isArray(forSaleRes?.[0])) {
-          liveActiveListings = Math.max(liveActiveListings, forSaleRes[0].length);
-        }
-      } catch (err) {
-        console.warn("Could not fetch active listings count fallback:", err);
+      if (Array.isArray(forSaleRes?.[0])) {
+        liveActiveListings = Math.max(liveActiveListings, forSaleRes[0].length);
       }
 
-      // Parse history
+      // Parse cumulative running volume history
+      let runningVolume = 0;
       const parsedHistory = Array.isArray(basicStats?.[3])
-        ? (basicStats[3] as any[]).map((item: any) => ({
-            date: new Date(Number(item.date) * 1000).toLocaleDateString(),
-            sales: Number(item.sales),
-            volume: octasToApt(item.volume),
-          }))
+        ? (basicStats[3] as any[]).map((item: any) => {
+            const vol = octasToApt(item.volume);
+            runningVolume = Number((runningVolume + vol).toFixed(4));
+            return {
+              date: new Date(Number(item.date) * 1000).toLocaleDateString(),
+              sales: Number(item.sales),
+              volume: runningVolume,
+            };
+          })
         : [];
 
       // Parse rarity
@@ -256,7 +258,9 @@ function AnalyticsPage() {
               {stats.salesHistory.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center text-cream/40 font-mono text-xs">
                   <TrendingUp className="w-8 h-8 mb-2 opacity-30" />
-                  <span>No historical time-series entries recorded yet on Devnet.</span>
+                  <span>
+                    No historical time-series entries recorded yet on {APTOS_NETWORK.toUpperCase()}.
+                  </span>
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">

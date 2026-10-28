@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
+  aptosClient,
   MARKETPLACE_CONTRACT_ADDRESS,
   octasToApt,
   aptToOctas,
@@ -12,6 +13,9 @@ import {
   confirmTransaction,
   normalizeAddress,
   isSameAddress,
+  decodeVectorOrHexToString,
+  sanitizeMediaUri,
+  getRarityInfo,
 } from "@/lib/aptosClient";
 import { Auction } from "@/types/marketplace";
 import { Clock, Gavel, Loader2, Award, CheckCircle2 } from "lucide-react";
@@ -21,13 +25,49 @@ interface Props {
   onBidPlaced?: () => void;
 }
 
+interface NFTMetadata {
+  name: string;
+  description: string;
+  uri: string;
+  rarity: number;
+}
+
 export function AuctionCard({ auction, onBidPlaced }: Props) {
   const { account, connected, signAndSubmitTransaction } = useWallet();
+  const walletAddress = account?.address ? String(account.address) : "";
+  const [nftDetails, setNftDetails] = useState<NFTMetadata | null>(null);
   const [bidInput, setBidInput] = useState("");
   const [timeLeft, setTimeLeft] = useState("");
   const [isEnded, setIsEnded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchDetails = async () => {
+      try {
+        const detailRes: any = await aptosClient.view({
+          function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_nft_details`,
+          type_arguments: [],
+          arguments: [MARKETPLACE_CONTRACT_ADDRESS, auction.nft_id.toString()],
+        });
+        if (Array.isArray(detailRes) && isMounted) {
+          setNftDetails({
+            name: decodeVectorOrHexToString(detailRes[2]),
+            description: decodeVectorOrHexToString(detailRes[3]),
+            uri: decodeVectorOrHexToString(detailRes[4]),
+            rarity: parseInt(detailRes[7], 10),
+          });
+        }
+      } catch (err) {
+        console.warn(`Could not load details for auction NFT #${auction.nft_id}:`, err);
+      }
+    };
+    fetchDetails();
+    return () => {
+      isMounted = false;
+    };
+  }, [auction.nft_id]);
 
   useEffect(() => {
     const updateCountdown = () => {
@@ -60,16 +100,16 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
   const minBidApt = hasBids ? Number((currentBidApt + 0.0001).toFixed(4)) : startPriceApt;
 
   const isHighestBidder = Boolean(
-    account?.address && hasBids && isSameAddress(account.address, auction.highest_bidder),
+    walletAddress && hasBids && isSameAddress(walletAddress, auction.highest_bidder),
   );
 
   const isSeller = Boolean(
-    account?.address && auction.seller && isSameAddress(account.address, auction.seller),
+    walletAddress && auction.seller && isSameAddress(walletAddress, auction.seller),
   );
 
   const handleBid = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!connected || !account) {
+    if (!connected || !walletAddress) {
       toast.error("Please connect your wallet to place a bid");
       return;
     }
@@ -130,7 +170,7 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
   };
 
   const handleFinalizeAuction = async () => {
-    if (!connected || !account) {
+    if (!connected || !walletAddress) {
       toast.error("Please connect your wallet to settle this auction");
       return;
     }
@@ -163,37 +203,79 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
     }
   };
 
+  const safeUri = nftDetails?.uri ? sanitizeMediaUri(nftDetails.uri) : "/videos/nft1.mp4";
+  const isVideo =
+    safeUri.endsWith(".mp4") || safeUri.endsWith(".webm") || safeUri.includes("cloudfront.net");
+  const rarityInfo = getRarityInfo(nftDetails ? nftDetails.rarity : 1);
+  const displayName = nftDetails?.name || `Object #${auction.nft_id}`;
+
   return (
-    <div className="liquid-glass rounded-3xl p-6 border border-white/10 hover:border-neon/40 transition-all flex flex-col justify-between">
+    <article className="liquid-glass rounded-3xl p-4 sm:p-5 border border-white/10 hover:border-neon/40 transition-all flex flex-col justify-between group">
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <span className="font-grotesk text-2xl uppercase tracking-wider text-cream">
-            Object #{auction.nft_id}
-          </span>
-          <span
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono border ${
-              isEnded
-                ? "bg-amber-950 text-amber-300 border-amber-800"
-                : "bg-neon/15 text-neon border-neon/30"
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>{timeLeft}</span>
-          </span>
+        {/* Media Preview */}
+        <div className="relative pb-[100%] rounded-2xl overflow-hidden bg-white/5 mb-4 group">
+          {isVideo ? (
+            <video
+              src={safeUri}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <img
+              src={safeUri}
+              alt={displayName}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src =
+                  "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80";
+              }}
+              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          )}
+
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+            <span
+              className={`px-3 py-1 rounded-full text-[11px] font-mono border backdrop-blur-md ${rarityInfo.badgeClass}`}
+            >
+              {rarityInfo.label}
+            </span>
+            <span
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono border backdrop-blur-md ${
+                isEnded
+                  ? "bg-amber-950/80 text-amber-300 border-amber-800/60"
+                  : "bg-neon/15 text-neon border-neon/30"
+              }`}
+            >
+              <Clock className="w-3 h-3" />
+              <span>{timeLeft}</span>
+            </span>
+          </div>
         </div>
 
-        <div className="space-y-3 p-4 rounded-2xl bg-white/5 border border-white/5 mb-4">
-          <div className="flex justify-between items-center text-xs font-mono text-cream/70">
+        {/* Title & NFT ID */}
+        <div className="flex items-center justify-between mb-3 px-1">
+          <h3 className="font-grotesk text-xl uppercase tracking-wider text-cream truncate">
+            {displayName}
+          </h3>
+          <span className="font-mono text-xs text-cream/40 shrink-0">#{auction.nft_id}</span>
+        </div>
+
+        {/* Bidding Stats Box */}
+        <div className="space-y-2.5 p-3.5 rounded-2xl bg-white/5 border border-white/5 mb-4 text-xs font-mono">
+          <div className="flex justify-between items-center text-cream/70">
             <span>Starting Price:</span>
             <span className="text-cream">{startPriceApt} APT</span>
           </div>
 
-          <div className="flex justify-between items-center text-xs font-mono text-cream/70">
+          <div className="flex justify-between items-center text-cream/70">
             <span>{hasBids ? "Current Highest Bid:" : "Minimum Bid:"}</span>
-            <span className="text-neon font-bold text-base">{currentBidApt} APT</span>
+            <span className="text-neon font-bold text-sm">{currentBidApt} APT</span>
           </div>
 
-          <div className="flex justify-between items-center text-xs font-mono text-cream/70">
+          <div className="flex justify-between items-center text-cream/70">
             <span>Highest Bidder:</span>
             <span className="text-cream font-medium">
               {hasBids ? truncateAddress(auction.highest_bidder) : "No bids yet"}
@@ -252,6 +334,6 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
           </div>
         </form>
       )}
-    </div>
+    </article>
   );
 }

@@ -34,9 +34,8 @@ export function NFTCard({ nft, onRefresh }: Props) {
   const [transferOpen, setTransferOpen] = useState(false);
   const [buying, setBuying] = useState(false);
 
-  const isOwner = Boolean(
-    account?.address && nft.owner && isSameAddress(account.address, nft.owner),
-  );
+  const walletAddress = account?.address ? String(account.address) : "";
+  const isOwner = Boolean(walletAddress && nft.owner && isSameAddress(walletAddress, nft.owner));
   const rarityInfo = getRarityInfo(nft.rarity);
   const priceApt = octasToApt(nft.price);
 

@@ -70,6 +70,8 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
     fetchOffers();
   }, [fetchOffers]);
 
+  const walletAddress = account?.address ? String(account.address) : "";
+
   const handleAcceptOffer = async (offerIndex: number) => {
     if (!account) return;
     setActionLoading(offerIndex);
@@ -92,6 +94,33 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
     } catch (err: any) {
       console.error("Error accepting offer:", err);
       toast.error(err?.message || "Failed to accept offer", { id: toastId });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectOffer = async (offerIndex: number) => {
+    if (!account) return;
+    setActionLoading(offerIndex);
+    const toastId = toast.loading("Rejecting offer & refunding escrowed APT to buyer...");
+
+    try {
+      const payload = createEntryPayload("reject_offer", [
+        MARKETPLACE_CONTRACT_ADDRESS,
+        nftId.toString(),
+        offerIndex.toString(),
+      ]);
+
+      const response: any = await signAndSubmitTransaction(payload);
+      toast.loading("Confirming rejection on Aptos...", { id: toastId });
+      await confirmTransaction(response);
+
+      toast.success("Offer rejected and buyer's escrow refunded.", { id: toastId });
+      fetchOffers();
+      onSuccess?.();
+    } catch (err: any) {
+      console.error("Error rejecting offer:", err);
+      toast.error(err?.message || "Failed to reject offer", { id: toastId });
     } finally {
       setActionLoading(null);
     }
@@ -188,7 +217,7 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
               const isExpired = Date.now() / 1000 > offer.expiration;
               const canAccept = isOwner && offer.status === 0 && !isExpired;
               const isOfferBuyer = Boolean(
-                account?.address && offer.buyer && isSameAddress(account.address, offer.buyer),
+                walletAddress && offer.buyer && isSameAddress(walletAddress, offer.buyer),
               );
               const canCancel = isOfferBuyer && offer.status === 0;
 
@@ -219,19 +248,36 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
 
                   <div className="flex items-center gap-2">
                     {canAccept && (
-                      <Button
-                        size="sm"
-                        disabled={actionLoading === index}
-                        onClick={() => handleAcceptOffer(index)}
-                        className="orb-button text-cream font-mono text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5"
-                      >
-                        {actionLoading === index ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <CheckCircle className="w-3.5 h-3.5" />
-                        )}
-                        <span>Accept</span>
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          disabled={actionLoading === index}
+                          onClick={() => handleAcceptOffer(index)}
+                          className="orb-button text-cream font-mono text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5"
+                        >
+                          {actionLoading === index ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle className="w-3.5 h-3.5" />
+                          )}
+                          <span>Accept</span>
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={actionLoading === index}
+                          onClick={() => handleRejectOffer(index)}
+                          className="border-rose-800 bg-rose-950/60 hover:bg-rose-950 text-rose-300 font-mono text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                        >
+                          {actionLoading === index ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <XCircle className="w-3.5 h-3.5" />
+                          )}
+                          <span>Reject</span>
+                        </Button>
+                      </>
                     )}
 
                     {canCancel && (

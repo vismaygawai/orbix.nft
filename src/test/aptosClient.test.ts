@@ -40,11 +40,17 @@ describe("Aptos Client Utilities", () => {
     expect(sanitizeMediaUri("data:text/html,<script>alert(1)</script>")).toBe("");
   });
 
-  it("truncates addresses for UI display", () => {
+  it("truncates addresses for UI display safely even with objects or undefined", () => {
     const address = "0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb";
     const truncated = truncateAddress(address);
     expect(truncated).toBe("0x4bee...f6fb");
     expect(truncateAddress("")).toBe("");
+    expect(truncateAddress(null)).toBe("");
+    expect(truncateAddress(undefined)).toBe("");
+    const mockAccountAddress = {
+      toString: () => "0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb",
+    };
+    expect(truncateAddress(mockAccountAddress)).toBe("0x4bee...f6fb");
   });
 
   it("normalizes Aptos addresses and checks equality correctly", () => {

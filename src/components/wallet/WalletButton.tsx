@@ -59,6 +59,7 @@ function GoogleIcon({ className }: { className?: string }) {
 
 export function WalletButton() {
   const { connected, account, network, disconnect, connect, wallets } = useWallet();
+  const walletAddress = account?.address ? String(account.address) : "";
   const [balance, setBalance] = useState<number | null>(null);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -69,16 +70,21 @@ export function WalletButton() {
   }, []);
 
   useEffect(() => {
-    if (connected && account?.address) {
-      fetchAptosBalance(account.address).then(setBalance);
-    } else {
+    if (!connected || !walletAddress) {
       setBalance(null);
+      return;
     }
-  }, [connected, account?.address]);
+    const refreshBalance = () => {
+      fetchAptosBalance(walletAddress).then(setBalance);
+    };
+    refreshBalance();
+    window.addEventListener("orbix:nft-updated", refreshBalance);
+    return () => window.removeEventListener("orbix:nft-updated", refreshBalance);
+  }, [connected, walletAddress]);
 
   const handleCopy = () => {
-    if (!account?.address) return;
-    navigator.clipboard.writeText(account.address);
+    if (!walletAddress) return;
+    navigator.clipboard.writeText(walletAddress);
     setCopied(true);
     toast.success("Address copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
@@ -193,7 +199,7 @@ export function WalletButton() {
             />
             <span className="hidden sm:inline">{balance !== null ? `${balance} APT` : "..."}</span>
             <span className="hidden sm:inline text-cream/50">|</span>
-            <span className="text-neon truncate">{truncateAddress(account.address)}</span>
+            <span className="text-neon truncate">{truncateAddress(walletAddress)}</span>
             <ChevronDown className="w-3.5 h-3.5 opacity-60 shrink-0" />
           </Button>
         </DropdownMenuTrigger>
@@ -232,7 +238,7 @@ export function WalletButton() {
                 {copied ? "Copied" : "Copy"}
               </button>
             </div>
-            <div className="break-all font-mono text-[11px] text-cream">{account.address}</div>
+            <div className="break-all font-mono text-[11px] text-cream">{walletAddress}</div>
           </div>
 
           <div className="flex justify-between items-center px-1 text-xs font-mono text-cream/70">
@@ -252,7 +258,7 @@ export function WalletButton() {
           <DropdownMenuSeparator className="bg-white/10" />
 
           <a
-            href={`https://explorer.aptoslabs.com/account/${account.address}?network=${APTOS_NETWORK}`}
+            href={`https://explorer.aptoslabs.com/account/${walletAddress}?network=${APTOS_NETWORK}`}
             target="_blank"
             rel="noreferrer"
             className="w-full flex items-center justify-between text-xs font-mono p-2 rounded-lg hover:bg-white/10 text-cream/80 hover:text-cream transition-colors"
@@ -393,7 +399,7 @@ export function WalletButton() {
 
             <div className="pt-2 text-center border-t border-white/10">
               <p className="text-[10px] font-mono text-cream/40">
-                Connected to Aptos Devnet • Powered by Aptos Connect & Move
+                Connected to Aptos {APTOS_NETWORK.toUpperCase()} • Powered by Aptos Connect & Move
               </p>
             </div>
           </div>

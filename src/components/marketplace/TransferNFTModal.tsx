@@ -29,12 +29,13 @@ interface Props {
 
 export function TransferNFTModal({ open, onOpenChange, nftId, onSuccess }: Props) {
   const { account, connected, signAndSubmitTransaction } = useWallet();
+  const walletAddress = account?.address ? String(account.address) : "";
   const [recipient, setRecipient] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!connected || !account) {
+    if (!connected || !account || !walletAddress) {
       toast.error("Please connect your wallet first");
       return;
     }
@@ -45,7 +46,7 @@ export function TransferNFTModal({ open, onOpenChange, nftId, onSuccess }: Props
       return;
     }
 
-    if (isSameAddress(cleanAddress, account.address)) {
+    if (isSameAddress(cleanAddress, walletAddress)) {
       toast.error("Cannot transfer an NFT to your own address");
       return;
     }

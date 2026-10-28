@@ -131,10 +131,11 @@ export function isSameAddress(a: unknown, b: unknown): boolean {
   return Boolean(normA && normB && normA !== "0x0" && normA === normB);
 }
 
-export function truncateAddress(address: string, start = 6, end = 4): string {
+export function truncateAddress(address: unknown, start = 6, end = 4): string {
   if (!address) return "";
-  if (address.length <= start + end) return address;
-  return `${address.slice(0, start)}...${address.slice(-end)}`;
+  const str = String(address).trim();
+  if (str.length <= start + end) return str;
+  return `${str.slice(0, start)}...${str.slice(-end)}`;
 }
 
 export function encodeStringToVector(str: string): number[] {
@@ -218,13 +219,14 @@ export function getRarityInfo(rarity: number) {
  * Uses the `0x1::coin::balance` view function first (supports both Fungible Asset & CoinStore)
  * with a fallback to `getAccountResources`.
  */
-export async function fetchAptosBalance(address: string): Promise<number> {
+export async function fetchAptosBalance(address: unknown): Promise<number> {
   if (!address) return 0;
+  const cleanAddr = String(address).trim();
   try {
     const result = await aptosClient.view({
       function: "0x1::coin::balance",
       type_arguments: ["0x1::aptos_coin::AptosCoin"],
-      arguments: [address],
+      arguments: [cleanAddr],
     });
     if (Array.isArray(result) && result[0] !== undefined) {
       return octasToApt(String(result[0]));
@@ -232,7 +234,7 @@ export async function fetchAptosBalance(address: string): Promise<number> {
   } catch {
     // Fallback to legacy CoinStore resource lookup
     try {
-      const resources: any[] = await aptosClient.getAccountResources(address);
+      const resources: any[] = await aptosClient.getAccountResources(cleanAddr);
       const coinStore = resources.find(
         (r) => r.type === "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>",
       );
@@ -259,6 +261,9 @@ export async function confirmTransaction(response: any): Promise<string> {
   });
   if (tx && tx.success === false) {
     throw new Error(tx.vm_status || "Transaction aborted on-chain");
+  }
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("orbix:nft-updated"));
   }
   return txHash;
 }

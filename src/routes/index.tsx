@@ -179,14 +179,9 @@ function Index() {
 
       {/* ABOUT */}
       <section aria-label="About" className="relative min-h-screen overflow-hidden">
-        <video
+        <LazyVideo
           src={ABOUT}
           poster={ABOUT_POSTER}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="metadata"
           className="absolute inset-0 w-full h-full object-cover z-0"
         />
 

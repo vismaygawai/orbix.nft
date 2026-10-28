@@ -19,6 +19,7 @@ import {
   MARKETPLACE_CONTRACT_ADDRESS,
   decodeVectorOrHexToString,
   octasToApt,
+  APTOS_NETWORK,
 } from "@/lib/aptosClient";
 import { Search, Filter, RefreshCw, ShoppingBag, Gavel, Loader2, AlertCircle } from "lucide-react";
 
@@ -48,69 +49,73 @@ function MarketPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch NFTs for sale
-      const forSaleResult: any = await aptosClient.view({
-        function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_all_nfts_for_sale`,
-        type_arguments: [],
-        arguments: [MARKETPLACE_CONTRACT_ADDRESS, "100", "0"],
-      });
+      // Fetch direct listings and active auctions concurrently
+      const [forSaleResult, auctionRes]: [any, any] = await Promise.all([
+        aptosClient.view({
+          function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_all_nfts_for_sale`,
+          type_arguments: [],
+          arguments: [MARKETPLACE_CONTRACT_ADDRESS, "100", "0"],
+        }),
+        aptosClient
+          .view({
+            function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_active_auctions`,
+            type_arguments: [],
+            arguments: [MARKETPLACE_CONTRACT_ADDRESS],
+          })
+          .catch((aucErr) => {
+            console.warn("Could not load auctions:", aucErr);
+            return [[]];
+          }),
+      ]);
 
       const listedList: ListedNFT[] = Array.isArray(forSaleResult?.[0]) ? forSaleResult[0] : [];
 
-      // Fetch full details for each listed NFT
-      const fullNfts: NFT[] = [];
-      for (const item of listedList) {
-        try {
-          const detailRes: any = await aptosClient.view({
-            function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_nft_details`,
-            type_arguments: [],
-            arguments: [MARKETPLACE_CONTRACT_ADDRESS, item.id.toString()],
-          });
+      // Fetch full details concurrently
+      const fullNfts: NFT[] = (
+        await Promise.all(
+          listedList.map(async (item) => {
+            try {
+              const detailRes: any = await aptosClient.view({
+                function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_nft_details`,
+                type_arguments: [],
+                arguments: [MARKETPLACE_CONTRACT_ADDRESS, item.id.toString()],
+              });
 
-          if (Array.isArray(detailRes)) {
-            // Returns: (id, owner, name, description, uri, price, for_sale, rarity)
-            fullNfts.push({
-              id: parseInt(detailRes[0], 10),
-              owner: detailRes[1],
-              name: decodeVectorOrHexToString(detailRes[2]),
-              description: decodeVectorOrHexToString(detailRes[3]),
-              uri: decodeVectorOrHexToString(detailRes[4]),
-              price: parseInt(detailRes[5], 10),
-              for_sale: Boolean(detailRes[6]),
-              rarity: parseInt(detailRes[7], 10),
-            });
-          }
-        } catch (detailErr) {
-          console.warn(`Could not load details for NFT #${item.id}:`, detailErr);
-        }
-      }
+              if (Array.isArray(detailRes)) {
+                return {
+                  id: parseInt(detailRes[0], 10),
+                  owner: detailRes[1],
+                  name: decodeVectorOrHexToString(detailRes[2]),
+                  description: decodeVectorOrHexToString(detailRes[3]),
+                  uri: decodeVectorOrHexToString(detailRes[4]),
+                  price: parseInt(detailRes[5], 10),
+                  for_sale: Boolean(detailRes[6]),
+                  rarity: parseInt(detailRes[7], 10),
+                } as NFT;
+              }
+              return null;
+            } catch (detailErr) {
+              console.warn(`Could not load details for NFT #${item.id}:`, detailErr);
+              return null;
+            }
+          }),
+        )
+      ).filter((n): n is NFT => n !== null);
 
       setNfts(fullNfts);
 
-      // 2. Fetch Active Auctions
-      try {
-        const auctionRes: any = await aptosClient.view({
-          function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_active_auctions`,
-          type_arguments: [],
-          arguments: [MARKETPLACE_CONTRACT_ADDRESS],
-        });
-
-        if (Array.isArray(auctionRes?.[0])) {
-          const parsedAuctions: Auction[] = auctionRes[0].map((a: any) => ({
-            nft_id: parseInt(a.nft_id, 10),
-            seller: a.seller,
-            start_price: parseInt(a.start_price, 10),
-            current_bid: parseInt(a.current_bid, 10),
-            highest_bidder: a.highest_bidder,
-            end_time: parseInt(a.end_time, 10),
-            active: Boolean(a.active),
-          }));
-          setAuctions(parsedAuctions);
-        } else {
-          setAuctions([]);
-        }
-      } catch (aucErr) {
-        console.warn("Could not load auctions:", aucErr);
+      if (Array.isArray(auctionRes?.[0])) {
+        const parsedAuctions: Auction[] = auctionRes[0].map((a: any) => ({
+          nft_id: parseInt(a.nft_id, 10),
+          seller: a.seller,
+          start_price: parseInt(a.start_price, 10),
+          current_bid: parseInt(a.current_bid, 10),
+          highest_bidder: a.highest_bidder,
+          end_time: parseInt(a.end_time, 10),
+          active: Boolean(a.active),
+        }));
+        setAuctions(parsedAuctions);
+      } else {
         setAuctions([]);
       }
     } catch (err) {
@@ -261,7 +266,7 @@ function MarketPage() {
       {loading ? (
         <div className="py-24 flex flex-col items-center justify-center gap-3 text-cream/50 font-mono text-sm">
           <Loader2 className="w-8 h-8 animate-spin text-neon" />
-          <span>Reading contract data from Aptos Devnet...</span>
+          <span>Reading contract data from Aptos {APTOS_NETWORK.toUpperCase()}...</span>
         </div>
       ) : activeTab === "marketplace" ? (
         filteredNfts.length === 0 ? (

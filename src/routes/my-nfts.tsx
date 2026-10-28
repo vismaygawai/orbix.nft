@@ -48,6 +48,7 @@ interface OutgoingOfferItem extends Offer {
 
 function MyNFTsPage() {
   const { account, connected, signAndSubmitTransaction } = useWallet();
+  const walletAddress = account?.address ? String(account.address) : "";
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [outgoingOffers, setOutgoingOffers] = useState<OutgoingOfferItem[]>([]);
   const [loadingNfts, setLoadingNfts] = useState(false);
@@ -58,7 +59,7 @@ function MyNFTsPage() {
 
   // 1. Fetch Owned Artifacts
   const fetchMyNFTs = useCallback(async () => {
-    if (!connected || !account?.address) {
+    if (!connected || !walletAddress) {
       setNfts([]);
       return;
     }
@@ -68,7 +69,7 @@ function MyNFTsPage() {
       const idsResult: any = await aptosClient.view({
         function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_all_nfts_for_owner`,
         type_arguments: [],
-        arguments: [MARKETPLACE_CONTRACT_ADDRESS, account.address, "100", "0"],
+        arguments: [MARKETPLACE_CONTRACT_ADDRESS, walletAddress, "100", "0"],
       });
 
       const rawIds: any[] = Array.isArray(idsResult?.[0]) ? idsResult[0] : [];
@@ -105,11 +106,11 @@ function MyNFTsPage() {
     } finally {
       setLoadingNfts(false);
     }
-  }, [connected, account?.address]);
+  }, [connected, walletAddress]);
 
   // 2. Fetch Outgoing Offers via get_user_offers + resolve exact offer_index & NFT metadata
   const fetchMyOutgoingOffers = useCallback(async () => {
-    if (!connected || !account?.address) {
+    if (!connected || !walletAddress) {
       setOutgoingOffers([]);
       return;
     }
@@ -119,7 +120,7 @@ function MyNFTsPage() {
       const userOffersRes: any = await aptosClient.view({
         function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_user_offers`,
         type_arguments: [],
-        arguments: [MARKETPLACE_CONTRACT_ADDRESS, account.address],
+        arguments: [MARKETPLACE_CONTRACT_ADDRESS, walletAddress],
       });
 
       const rawUserOffers: any[] = Array.isArray(userOffersRes?.[0]) ? userOffersRes[0] : [];
@@ -157,7 +158,7 @@ function MyNFTsPage() {
           const matches: OutgoingOfferItem[] = [];
           allOffersForNft.forEach((o: any, idx: number) => {
             const isUser = Boolean(
-              o.buyer && account?.address && isSameAddress(o.buyer, account.address),
+              o.buyer && walletAddress && isSameAddress(o.buyer, walletAddress),
             );
             const status = Number(o.status);
             if (isUser && status === 0) {
@@ -185,7 +186,7 @@ function MyNFTsPage() {
     } finally {
       setLoadingOffers(false);
     }
-  }, [connected, account?.address]);
+  }, [connected, walletAddress]);
 
   const handleRefreshAll = useCallback(() => {
     fetchMyNFTs();

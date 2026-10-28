@@ -795,6 +795,39 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             });
         }
 
+        // Added: Allows seller/NFT owner to explicitly reject a pending offer and refund escrowed APT to buyer
+        public entry fun reject_offer(
+            account: &signer,
+            marketplace_addr: address,
+            nft_id: u64,
+            offer_index: u64
+        ) acquires Marketplace {
+            let marketplace = borrow_global_mut<Marketplace>(marketplace_addr);
+            assert!(nft_id < vector::length(&marketplace.nfts), ENFT_NOT_FOUND);
+
+            let nft_ref = vector::borrow(&marketplace.nfts, nft_id);
+            let caller = signer::address_of(account);
+            assert!(nft_ref.owner == caller, ENOT_OWNER);
+
+            let offers = table::borrow_mut(&mut marketplace.offers, nft_id);
+            assert!(offer_index < vector::length(offers), 1009);
+            let offer = vector::borrow_mut(offers, offer_index);
+            assert!(offer.status == 0, EOFFER_NOT_PENDING);
+
+            offer.status = 2; // 2: rejected
+
+            let nft_escrow_table = table::borrow_mut(&mut marketplace.offer_escrow, nft_id);
+            let refund_coin = table::remove(nft_escrow_table, offer_index);
+            coin::deposit<AptosCoin>(offer.buyer, refund_coin);
+
+            event::emit_event(&mut marketplace.offer_status_events, OfferStatusChangedEvent {
+                nft_id,
+                buyer: offer.buyer,
+                price: offer.price,
+                new_status: 2
+            });
+        }
+
         #[view]
         public fun get_marketplace_stats(
             marketplace_addr: address
@@ -884,6 +917,63 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             };
 
             user_offers
+        }
+
+        #[view]
+        public fun get_creator_royalty(
+            marketplace_addr: address,
+            creator_addr: address
+        ): u64 acquires Marketplace {
+            let marketplace = borrow_global<Marketplace>(marketplace_addr);
+            if (table::contains(&marketplace.creator_royalties, creator_addr)) {
+                *table::borrow(&marketplace.creator_royalties, creator_addr)
+            } else {
+                0
+            }
+        }
+
+        #[test_only]
+        use aptos_framework::account::create_account_for_test;
+
+        #[test(admin = @0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb, user1 = @0x100, user2 = @0x200)]
+        fun test_end_to_end_marketplace(admin: &signer, user1: &signer, user2: &signer) acquires Marketplace {
+            let admin_addr = signer::address_of(admin);
+            let user1_addr = signer::address_of(user1);
+            let user2_addr = signer::address_of(user2);
+
+            create_account_for_test(admin_addr);
+            create_account_for_test(user1_addr);
+            create_account_for_test(user2_addr);
+
+            // 1. Initialize marketplace
+            initialize(admin);
+            assert!(is_marketplace_initialized(admin_addr), 0);
+
+            // 2. Mint NFT
+            mint_nft(user1, b"Ocean Abyssal #1", b"Rare deep sea relic", b"https://orbix.nft/video.mp4", 3);
+            let (id, owner, _name, _desc, _uri, price, for_sale, rarity) = get_nft_details(admin_addr, 0);
+            assert!(id == 0, 1);
+            assert!(owner == user1_addr, 2);
+            assert!(price == 0, 3);
+            assert!(!for_sale, 4);
+            assert!(rarity == 3, 5);
+
+            // 3. List for sale
+            list_for_sale(user1, admin_addr, 0, 100000000); // 1 APT
+            assert!(is_nft_for_sale(admin_addr, 0), 6);
+            assert!(get_nft_price(admin_addr, 0) == 100000000, 7);
+
+            // 4. Cancel listing
+            cancel_listing(user1, admin_addr, 0);
+            assert!(!is_nft_for_sale(admin_addr, 0), 8);
+
+            // 5. Transfer ownership
+            transfer_ownership(user1, admin_addr, 0, user2_addr);
+            assert!(get_owner(admin_addr, 0) == user2_addr, 9);
+
+            // 6. Creator royalties
+            set_creator_royalty(user1, admin_addr, 5);
+            assert!(get_creator_royalty(admin_addr, user1_addr) == 5, 10);
         }
     }
 }
