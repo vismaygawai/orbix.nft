@@ -8,7 +8,7 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { AptosWalletProvider } from "@/components/wallet/AptosWalletProvider";
 import { NavBar } from "@/components/NavBar";

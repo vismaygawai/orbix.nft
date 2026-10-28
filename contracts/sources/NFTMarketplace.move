@@ -612,7 +612,12 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             assert!(found, ENFT_NOT_FOUND);
 
             let auction = vector::borrow_mut(&mut marketplace.auctions, auction_index);
-            assert!(timestamp::now_seconds() >= auction.end_time, EAUCTION_NOT_ENDED);
+            let caller = signer::address_of(_account);
+            let is_seller_cancelling_empty = (caller == auction.seller && auction.highest_bidder == @0x0);
+            assert!(
+                timestamp::now_seconds() >= auction.end_time || is_seller_cancelling_empty,
+                EAUCTION_NOT_ENDED
+            );
             auction.active = false;
 
             if (auction.highest_bidder != @0x0 && table::contains(&marketplace.auction_escrow, nft_id)) {
@@ -935,8 +940,15 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
         #[test_only]
         use aptos_framework::account::create_account_for_test;
 
-        #[test(admin = @0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb, user1 = @0x100, user2 = @0x200)]
-        fun test_end_to_end_marketplace(admin: &signer, user1: &signer, user2: &signer) acquires Marketplace {
+        #[test(aptos_framework = @0x1, admin = @0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb, user1 = @0x100, user2 = @0x200)]
+        fun test_end_to_end_marketplace(
+            aptos_framework: &signer,
+            admin: &signer,
+            user1: &signer,
+            user2: &signer
+        ) acquires Marketplace {
+            timestamp::set_time_has_started_for_testing(aptos_framework);
+
             let admin_addr = signer::address_of(admin);
             let user1_addr = signer::address_of(user1);
             let user2_addr = signer::address_of(user2);
@@ -974,6 +986,12 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             // 6. Creator royalties
             set_creator_royalty(user1, admin_addr, 5);
             assert!(get_creator_royalty(admin_addr, user1_addr) == 5, 10);
+
+            // 7. Create auction and cancel early while empty (zero bids)
+            create_auction(user2, admin_addr, 0, 50000000, 3600); // 0.5 APT, 1 hr
+            assert!(vector::length(&get_active_auctions(admin_addr)) == 1, 11);
+            finalize_auction(user2, admin_addr, 0); // cancelled early by seller with no bids
+            assert!(vector::length(&get_active_auctions(admin_addr)) == 0, 12);
         }
     }
 }

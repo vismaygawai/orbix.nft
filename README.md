@@ -59,26 +59,40 @@ The Move smart contract operates directly on Aptos Devnet. All marketplace state
 
 | Function            | Description                                                                                      |
 | ------------------- | ------------------------------------------------------------------------------------------------ |
-| mint_nft            | Registers a new ocean artifact with title, description, media URI, and rarity tier (1 to 4).     |
-| list_for_sale       | Places an owned NFT up for direct purchase at a fixed price in Octas.                            |
-| set_price           | Updates the asking price for an active direct listing.                                           |
-| purchase_nft        | Settles purchase, deducting a 2% platform fee and creator royalty before transferring ownership. |
-| create_auction      | Initializes an on-chain auction with starting price and expiration duration.                     |
-| place_bid           | Submits an increased bid and automatically returns funds to the prior highest bidder.            |
-| make_offer          | Submits a direct buyer offer with an expiration timestamp.                                       |
-| accept_offer        | Seller accepts an active buyer offer, settling transfer and payment on-chain.                    |
-| set_creator_royalty | Allows creators to define secondary sales royalty percentages (0% to 30%).                       |
+| `initialize`          | Initializes the global marketplace state, tables, event handles, and statistics registry.        |
+| `mint_nft`            | Registers a new ocean artifact with title, description, media URI, and rarity tier (1 to 4).     |
+| `list_for_sale`       | Places an owned NFT up for direct purchase at a fixed price in Octas.                            |
+| `cancel_listing`      | Delists an active fixed-price NFT listing and resets its status.                                 |
+| `set_price`           | Updates the asking price for an active direct listing.                                           |
+| `purchase_nft`        | Settles purchase, deducting a 2% platform fee and creator royalty before transferring ownership. |
+| `transfer_ownership`  | Transfers an unlisted NFT directly to a recipient Aptos address.                                 |
+| `create_auction`      | Initializes an on-chain auction with starting price and duration in seconds.                     |
+| `place_bid`           | Submits an increased bid and automatically returns funds to the prior highest bidder.            |
+| `finalize_auction`    | Settles an expired auction or allows the seller to close/cancel an empty auction early.           |
+| `set_creator_royalty` | Allows creators to configure secondary sales royalty percentages (0% to 30%).                     |
+| `make_offer`          | Submits an escrowed buyer offer with expiration timestamp, locking payment on-chain.             |
+| `accept_offer`        | Seller accepts an active buyer offer, settling transfer and payment on-chain.                    |
+| `cancel_offer`        | Allows buyer to cancel their pending or expired offer and reclaim escrowed APT.                  |
+| `reject_offer`        | Allows NFT owner/seller to reject an offer and immediately refund escrowed APT to the buyer.      |
 
 ### View Functions (Read Only)
 
-| Function               | Description                                                                                        |
-| ---------------------- | -------------------------------------------------------------------------------------------------- |
-| get_all_nfts_for_sale  | Returns all fixed-price marketplace listings with pagination.                                      |
-| get_nft_details        | Returns complete token metadata (owner, name, description, URI, price, rarity, status).            |
-| get_active_auctions    | Returns all ongoing auctions with live expiration timestamps and leading bids.                     |
-| get_all_nfts_for_owner | Queries all NFT IDs registered to a specific Aptos account address.                                |
-| get_marketplace_stats  | Retrieves aggregate metrics including total volume in Octas, total sales count, and sales history. |
-| get_sales_by_rarity    | Queries distribution of sales metrics segmented across the 4 rarity tiers.                         |
+| Function                    | Description                                                                                        |
+| --------------------------- | -------------------------------------------------------------------------------------------------- |
+| `is_marketplace_initialized` | Checks if the global marketplace resource is initialized on-chain.                                 |
+| `get_nft_details`           | Returns complete token metadata (id, owner, name, description, uri, price, for_sale, rarity).       |
+| `is_nft_for_sale`           | Checks whether an NFT is currently listed for direct fixed-price sale.                             |
+| `get_nft_price`             | Returns the asking price in Octas for a listed NFT.                                                |
+| `get_owner`                 | Returns the current Aptos owner address for an NFT ID.                                             |
+| `get_all_nfts_for_owner`    | Queries all NFT IDs registered to a specific Aptos account address with pagination.               |
+| `get_all_nfts_for_sale`     | Returns all fixed-price marketplace listings with pagination.                                      |
+| `get_nfts_by_rarity`        | Filters and retrieves all NFT IDs matching a specific rarity tier (1 to 4).                        |
+| `get_marketplace_stats`     | Retrieves aggregate metrics including total volume in Octas, total sales count, and sales history. |
+| `get_sales_by_rarity`       | Queries distribution of sales metrics segmented across the 4 rarity tiers.                         |
+| `get_active_auctions`       | Returns all ongoing auctions with live expiration timestamps and leading bids.                     |
+| `get_offers_for_nft`        | Returns all historical and active on-chain offers recorded for a specific NFT.                    |
+| `get_user_offers`           | Returns all active offers placed across the marketplace by a specific buyer address.              |
+| `get_creator_royalty`       | Returns the registered secondary royalty percentage for a creator address.                         |
 
 ---
 
@@ -101,17 +115,17 @@ orbix.nft/
 │   └── favicon.ico                   # Application favicon
 ├── src/
 │   ├── components/
-│   │   ├── layout/
-│   │   │   ├── Navbar.tsx            # Navigation header with mint trigger & wallet button
-│   │   │   └── Footer.tsx            # Footer with legal dialogs, Aptoscan link, and contract address
+│   │   ├── Footer.tsx                # Footer with legal dialogs, Aptoscan link, and contract address
+│   │   ├── NavBar.tsx                # Navigation header with mint trigger, responsive drawer & wallet button
 │   │   ├── marketplace/              # Marketplace interface modals & cards
-│   │   │   ├── AuctionCard.tsx       # Live auction card with countdown timer & bid submission
+│   │   │   ├── AuctionCard.tsx       # Live auction card with media preview, countdown timer & bid submission
 │   │   │   ├── CreateAuctionModal.tsx# Form to initialize on-chain auctions
 │   │   │   ├── ListNFTModal.tsx      # Listing form to list owned tokens for sale
 │   │   │   ├── MakeOfferModal.tsx    # Modal to submit direct buyer offers
 │   │   │   ├── MintNFTModal.tsx      # Modal to mint new ocean artifacts on Aptos
 │   │   │   ├── NFTCard.tsx           # Standard NFT card with media preview, rarity, and actions
-│   │   │   └── OffersModal.tsx       # Modal to review incoming offers and accept sales
+│   │   │   ├── OffersModal.tsx       # Modal to review incoming offers and accept or reject sales
+│   │   │   └── TransferNFTModal.tsx  # Direct transfer modal to send unlisted NFTs to another address
 │   │   ├── wallet/
 │   │   │   ├── AptosWalletProvider.tsx # Client-side hydration boundary for Aptos wallet adapters
 │   │   │   └── WalletButton.tsx      # Connect button, Google Keyless login, and account dropdown

@@ -89,7 +89,7 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
       await confirmTransaction(response);
 
       toast.success("Offer accepted! NFT ownership transferred.", { id: toastId });
-      fetchOffers();
+      onOpenChange(false);
       onSuccess?.();
     } catch (err: any) {
       console.error("Error accepting offer:", err);

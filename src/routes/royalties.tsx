@@ -155,10 +155,16 @@ function RoyaltiesPage() {
                     Royalty Percentage (0% - 30%)
                   </Label>
                   <div className="flex items-center gap-2">
-                    {currentOnChainRoyalty !== null && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800">
-                        Current: {currentOnChainRoyalty}%
+                    {fetchingRate ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-white/5 text-cream/50 border border-white/10">
+                        Syncing...
                       </span>
+                    ) : (
+                      currentOnChainRoyalty !== null && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800">
+                          Current: {currentOnChainRoyalty}%
+                        </span>
+                      )
                     )}
                     <span className="text-xs font-mono text-neon font-bold">{royalty}%</span>
                   </div>

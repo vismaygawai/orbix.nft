@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import React, { useState, useEffect, useMemo } from "react";
-import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { NFT, Auction, ListedNFT } from "@/types/marketplace";
 import { NFTCard } from "@/components/marketplace/NFTCard";
 import { AuctionCard } from "@/components/marketplace/AuctionCard";
@@ -18,7 +17,6 @@ import {
   aptosClient,
   MARKETPLACE_CONTRACT_ADDRESS,
   decodeVectorOrHexToString,
-  octasToApt,
   APTOS_NETWORK,
 } from "@/lib/aptosClient";
 import { Search, Filter, RefreshCw, ShoppingBag, Gavel, Loader2, AlertCircle } from "lucide-react";
@@ -37,7 +35,6 @@ export const Route = createFileRoute("/market")({
 });
 
 function MarketPage() {
-  const { connected } = useWallet();
   const [activeTab, setActiveTab] = useState<"marketplace" | "auctions">("marketplace");
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [auctions, setAuctions] = useState<Auction[]>([]);

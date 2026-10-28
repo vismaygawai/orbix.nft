@@ -18,7 +18,7 @@ import {
   getRarityInfo,
 } from "@/lib/aptosClient";
 import { Auction } from "@/types/marketplace";
-import { Clock, Gavel, Loader2, Award, CheckCircle2 } from "lucide-react";
+import { Clock, Gavel, Loader2, Award, CheckCircle2, XCircle } from "lucide-react";
 
 interface Props {
   auction: Auction;
@@ -176,7 +176,11 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
     }
 
     setFinalizing(true);
-    const toastId = toast.loading(`Settling auction for Object #${auction.nft_id}...`);
+    const toastId = toast.loading(
+      !hasBids && !isEnded
+        ? `Cancelling auction for Object #${auction.nft_id}...`
+        : `Settling auction for Object #${auction.nft_id}...`,
+    );
 
     try {
       const payload = createEntryPayload("finalize_auction", [
@@ -304,6 +308,22 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
               <CheckCircle2 className="w-4 h-4" />
             )}
             <span>{finalizing ? "Settling..." : "Finalize & Settle Auction"}</span>
+          </Button>
+        </div>
+      ) : isSeller && !hasBids ? (
+        <div className="mt-2 space-y-2">
+          <Button
+            type="button"
+            disabled={finalizing || !connected}
+            onClick={handleFinalizeAuction}
+            className="w-full border-rose-800 bg-rose-950/60 hover:bg-rose-950 text-rose-300 font-mono text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+          >
+            {finalizing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <XCircle className="w-4 h-4" />
+            )}
+            <span>{finalizing ? "Cancelling..." : "Cancel Auction (No Bids)"}</span>
           </Button>
         </div>
       ) : (
