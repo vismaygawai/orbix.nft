@@ -62,8 +62,8 @@ describe("Hero Section & Curated NFTs", () => {
 
     const buyerOwned = getOwnedCuratedNFTs(buyerWallet);
     expect(buyerOwned.length).toBe(1);
-    expect(buyerOwned[0].id).toBe(2);
-    expect(buyerOwned[0].usdPrice).toBe(150);
+    expect(buyerOwned[0]?.id).toBe(2);
+    expect(buyerOwned[0]?.usdPrice).toBe(150);
   });
 
   it("records relisting an artifact", () => {

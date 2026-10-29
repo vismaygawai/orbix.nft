@@ -1,15 +1,15 @@
 export interface NFT {
   id: number;
   owner: string;
-  creator?: string;
+  creator?: string | undefined;
   name: string;
   description: string;
   uri: string;
   price: number; // in octas
-  usdPrice?: number; // USD price ($50, $100, $150)
+  usdPrice?: number | undefined; // USD price ($50, $100, $150)
   for_sale: boolean;
   rarity: number; // 1: Common, 2: Uncommon, 3: Rare, 4: Epic
-  in_auction?: boolean;
+  in_auction?: boolean | undefined;
 }
 
 export interface ListedNFT {
@@ -20,7 +20,7 @@ export interface ListedNFT {
 
 export interface Auction {
   nft_id: number;
-  seller?: string;
+  seller?: string | undefined;
   start_price: number;
   current_bid: number;
   highest_bidder: string;
@@ -52,6 +52,6 @@ export interface MarketplaceStats {
   total_sales: number;
   total_volume: number;
   active_listings: number;
-  sales_history?: SalesHistory[];
-  sales_by_rarity?: RaritySales[];
+  sales_history?: SalesHistory[] | undefined;
+  sales_by_rarity?: RaritySales[] | undefined;
 }

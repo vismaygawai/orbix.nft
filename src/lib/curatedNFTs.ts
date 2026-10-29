@@ -77,11 +77,11 @@ export function getCuratedNFTs(): NFT[] {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_HERO_NFTS));
       return INITIAL_HERO_NFTS;
     }
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) {
       return INITIAL_HERO_NFTS;
     }
-    return parsed;
+    return parsed as NFT[];
   } catch {
     return INITIAL_HERO_NFTS;
   }
@@ -107,7 +107,7 @@ export function saveCuratedNFTs(nfts: NFT[]): void {
  */
 export function recordNFTPurchase(nftId: number, newOwner: string, txHash?: string): void {
   const current = getCuratedNFTs();
-  const updated = current.map((item) => {
+  const updated: NFT[] = current.map((item) => {
     if (item.id === nftId) {
       return {
         ...item,
@@ -124,15 +124,15 @@ export function recordNFTPurchase(nftId: number, newOwner: string, txHash?: stri
     try {
       const historyKey = "orbix:sales_history";
       const rawHistory = localStorage.getItem(historyKey);
-      const history = rawHistory ? JSON.parse(rawHistory) : [];
+      const history: unknown[] = rawHistory ? (JSON.parse(rawHistory) as unknown[]) : [];
       const purchasedNft = current.find((n) => n.id === nftId);
       history.push({
         nftId,
-        seller: purchasedNft?.owner || PETRA_SELLER_WALLET,
+        seller: purchasedNft?.owner ?? PETRA_SELLER_WALLET,
         buyer: newOwner,
-        price: purchasedNft?.price || 0,
-        usdPrice: purchasedNft?.usdPrice || 0,
-        txHash: txHash || "",
+        price: purchasedNft?.price ?? 0,
+        usdPrice: purchasedNft?.usdPrice ?? 0,
+        txHash: txHash ?? "",
         timestamp: Date.now(),
       });
       localStorage.setItem(historyKey, JSON.stringify(history));
@@ -149,14 +149,17 @@ export function recordNFTPurchase(nftId: number, newOwner: string, txHash?: stri
  */
 export function recordNFTListing(nftId: number, priceOctas: number, usdPrice?: number): void {
   const current = getCuratedNFTs();
-  const updated = current.map((item) => {
+  const updated: NFT[] = current.map((item) => {
     if (item.id === nftId) {
-      return {
+      const updatedItem: NFT = {
         ...item,
         price: priceOctas,
-        usdPrice: usdPrice ?? item.usdPrice,
         for_sale: true,
       };
+      if (usdPrice !== undefined) {
+        updatedItem.usdPrice = usdPrice;
+      }
+      return updatedItem;
     }
     return item;
   });
