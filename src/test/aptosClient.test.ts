@@ -4,12 +4,16 @@ import {
   aptToOctas,
   aptToOctasBigInt,
   sanitizeMediaUri,
+  resolveMediaUrl,
+  isVideoUri,
+  parseMoveAbort,
   truncateAddress,
   encodeStringToVector,
   decodeVectorOrHexToString,
   getRarityInfo,
   normalizeAddress,
   isSameAddress,
+  getNowSeconds,
 } from "../lib/aptosClient";
 
 describe("Aptos Client Utilities", () => {
@@ -30,14 +34,50 @@ describe("Aptos Client Utilities", () => {
     expect(aptToOctasBigInt("100.12345678")).toBe(10012345678n);
   });
 
-  it("sanitizes media URIs to prevent XSS payloads", () => {
+  it("sanitizes media URIs without rewriting ipfs:// prematurely", () => {
     expect(sanitizeMediaUri("https://arweave.net/artifact.png")).toBe(
       "https://arweave.net/artifact.png",
     );
-    expect(sanitizeMediaUri("ipfs://QmHash123")).toBe("https://ipfs.io/ipfs/QmHash123");
+    expect(sanitizeMediaUri("ipfs://QmHash123")).toBe("ipfs://QmHash123");
     expect(sanitizeMediaUri("/videos/nft1.mp4")).toBe("/videos/nft1.mp4");
     expect(sanitizeMediaUri("javascript:alert(1)")).toBe("");
     expect(sanitizeMediaUri("data:text/html,<script>alert(1)</script>")).toBe("");
+  });
+
+  it("resolves media URIs for playback and browser rendering", () => {
+    expect(resolveMediaUrl("ipfs://QmHash123")).toBe("https://ipfs.io/ipfs/QmHash123");
+    expect(resolveMediaUrl("ipfs://ipfs/QmHash123")).toBe("https://ipfs.io/ipfs/QmHash123");
+    expect(resolveMediaUrl("/videos/nft1.mp4")).toBe("/videos/nft1.mp4");
+    expect(resolveMediaUrl("https://arweave.net/artifact.png")).toBe(
+      "https://arweave.net/artifact.png",
+    );
+  });
+
+  it("detects video URIs ignoring query strings and fragments", () => {
+    expect(isVideoUri("https://example.com/art.mp4?v=1#t=10")).toBe(true);
+    expect(isVideoUri("https://example.com/ocean.webm")).toBe(true);
+    expect(isVideoUri("https://d123.cloudfront.net/stream")).toBe(true);
+    expect(isVideoUri("https://example.com/image.png")).toBe(false);
+    expect(isVideoUri("")).toBe(false);
+  });
+
+  it("parses Move VM abort codes into user-friendly messages", () => {
+    expect(parseMoveAbort(new Error("Move abort: 100"))).toBe(
+      "You do not own this ocean artifact.",
+    );
+    expect(parseMoveAbort(new Error("aborted with 1018"))).toBe("Auction has already expired.");
+    expect(parseMoveAbort(new Error("User rejected the transaction"))).toBe(
+      "Transaction was cancelled in wallet.",
+    );
+    expect(parseMoveAbort(new Error("Execution failed at 0x64"))).toBe(
+      "You do not own this ocean artifact.",
+    );
+  });
+
+  it("returns current ledger-synchronized timestamp", () => {
+    const now = getNowSeconds();
+    expect(typeof now).toBe("number");
+    expect(now).toBeGreaterThan(1700000000);
   });
 
   it("truncates addresses for UI display safely even with objects or undefined", () => {

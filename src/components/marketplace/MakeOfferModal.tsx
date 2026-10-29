@@ -16,9 +16,10 @@ import {
   MARKETPLACE_CONTRACT_ADDRESS,
   aptToOctas,
   createEntryPayload,
-  confirmTransaction,
+  getNowSeconds,
 } from "@/lib/aptosClient";
-import { Tag, Loader2 } from "lucide-react";
+import { useMarketplaceTx } from "@/hooks/useMarketplaceTx";
+import { Tag, Loader2, ShieldCheck } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -28,10 +29,10 @@ interface Props {
 }
 
 export function MakeOfferModal({ open, onOpenChange, nftId, onSuccess }: Props) {
-  const { connected, signAndSubmitTransaction } = useWallet();
+  const { connected } = useWallet();
+  const { executeTx, isSubmitting: loading } = useMarketplaceTx();
   const [offerPrice, setOfferPrice] = useState("");
   const [expirationHours, setExpirationHours] = useState("48");
-  const [loading, setLoading] = useState(false);
 
   const handleMakeOffer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,10 +42,11 @@ export function MakeOfferModal({ open, onOpenChange, nftId, onSuccess }: Props) 
     }
 
     const priceNum = parseFloat(offerPrice);
+    const octas = aptToOctas(offerPrice);
     const hoursNum = parseFloat(expirationHours);
 
-    if (isNaN(priceNum) || priceNum <= 0) {
-      toast.error("Please enter a valid offer price in APT");
+    if (isNaN(priceNum) || priceNum <= 0 || octas <= 0) {
+      toast.error("Please enter a valid offer price in APT (minimum 0.00000001 APT)");
       return;
     }
 
@@ -53,36 +55,30 @@ export function MakeOfferModal({ open, onOpenChange, nftId, onSuccess }: Props) 
       return;
     }
 
-    setLoading(true);
-    const toastId = toast.loading("Submitting offer on-chain...");
+    // Use synchronized ledger timestamp to prevent clock drift aborts
+    const currentLedgerSecs = getNowSeconds();
+    const expirationTime = currentLedgerSecs + Math.floor(hoursNum * 3600);
 
-    try {
-      const priceInOctas = aptToOctas(priceNum).toString();
-      const currentTime = Math.floor(Date.now() / 1000);
-      const expirationTime = (currentTime + Math.floor(hoursNum * 3600)).toString();
+    const payload = createEntryPayload("make_offer", [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      nftId.toString(),
+      octas.toString(),
+      expirationTime.toString(),
+    ]);
 
-      const payload = createEntryPayload("make_offer", [
-        MARKETPLACE_CONTRACT_ADDRESS,
-        nftId.toString(),
-        priceInOctas,
-        expirationTime,
-      ]);
+    const txHash = await executeTx(payload, {
+      title: `Making Offer on #${nftId}`,
+      description: `Escrowing ${offerPrice} APT for ${hoursNum} hr(s)...`,
+      successTitle: "Offer Submitted!",
+      successDescription: `Your offer of ${offerPrice} APT is now locked in contract escrow.`,
+      onSuccess: () => {
+        onOpenChange(false);
+        onSuccess?.();
+      },
+    });
 
-      const response: any = await signAndSubmitTransaction(payload);
-      toast.loading("Waiting for confirmation...", { id: toastId });
-      await confirmTransaction(response);
-
-      toast.success("Offer submitted successfully!", { id: toastId });
-      onOpenChange(false);
-      onSuccess?.();
-    } catch (err: any) {
-      console.error("Error making offer:", err);
-      let msg = err?.message || "Failed to make offer";
-      if (msg.includes("1006")) msg = "Offer expiration must be in the future";
-      if (msg.includes("1009")) msg = "NFT does not exist";
-      toast.error(msg, { id: toastId });
-    } finally {
-      setLoading(false);
+    if (txHash) {
+      setOfferPrice("");
     }
   };
 
@@ -94,7 +90,7 @@ export function MakeOfferModal({ open, onOpenChange, nftId, onSuccess }: Props) 
             <Tag className="w-5 h-5 text-neon" /> Make Offer on #{nftId}
           </DialogTitle>
           <DialogDescription className="text-cream/70 font-mono text-xs">
-            Send an on-chain offer directly to the owner of this artifact.
+            Submit a binding on-chain offer. Funds are securely locked in marketplace escrow.
           </DialogDescription>
         </DialogHeader>
 
@@ -107,7 +103,7 @@ export function MakeOfferModal({ open, onOpenChange, nftId, onSuccess }: Props) 
               id="offer-price"
               type="number"
               step="any"
-              min="0.0001"
+              min="0.00000001"
               placeholder="e.g. 0.8"
               value={offerPrice}
               onChange={(e) => setOfferPrice(e.target.value)}
@@ -118,19 +114,28 @@ export function MakeOfferModal({ open, onOpenChange, nftId, onSuccess }: Props) 
 
           <div className="space-y-1.5">
             <Label htmlFor="offer-expiration" className="text-xs font-mono uppercase text-cream/80">
-              Valid For (Hours) *
+              Valid For (Hours) * (Min. 1 Hour)
             </Label>
             <Input
               id="offer-expiration"
               type="number"
               step="1"
               min="1"
+              max="720"
               placeholder="e.g. 48"
               value={expirationHours}
               onChange={(e) => setExpirationHours(e.target.value)}
               className="bg-white/5 border-white/15 text-cream placeholder:text-cream/30 focus-visible:ring-neon font-mono"
               required
             />
+          </div>
+
+          <div className="p-3 rounded-xl bg-neon/10 border border-neon/20 flex items-start gap-2.5">
+            <ShieldCheck className="w-4 h-4 text-neon shrink-0 mt-0.5" />
+            <p className="text-[11px] font-mono text-cream/80 leading-relaxed">
+              Your APT is safely escrowed in the Move contract. If the seller declines or the offer
+              expires, you can reclaim 100% of your funds at any time.
+            </p>
           </div>
 
           <DialogFooter className="pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
@@ -148,7 +153,7 @@ export function MakeOfferModal({ open, onOpenChange, nftId, onSuccess }: Props) 
               className="orb-button text-cream font-mono text-xs px-6 py-2.5 rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>{loading ? "Submitting..." : "Send Offer"}</span>
+              <span>{loading ? "Submitting..." : "Submit Offer"}</span>
             </Button>
           </DialogFooter>
         </form>

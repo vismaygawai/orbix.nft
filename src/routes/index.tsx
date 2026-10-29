@@ -138,7 +138,10 @@ function Index() {
           <div className="flex flex-col justify-center min-h-[60vh] relative">
             <div className="relative max-w-[850px] lg:ml-20">
               <div className="sm:hidden mb-2">
-                <span className="font-condiment text-neon text-[24px] inline-block -rotate-2 opacity-95 normal-case">
+                <span
+                  aria-hidden="true"
+                  className="font-condiment text-neon text-[24px] inline-block -rotate-2 opacity-95 normal-case"
+                >
                   Aptos nft collection
                 </span>
               </div>
@@ -147,7 +150,10 @@ function Index() {
                 <br />
                 and ( its ) uncharted depths
               </h1>
-              <span className="hidden sm:inline-block font-condiment text-neon text-[36px] md:text-[48px] absolute -rotate-2 opacity-90 right-4 sm:right-10 top-[28%] normal-case pointer-events-none">
+              <span
+                aria-hidden="true"
+                className="hidden sm:inline-block font-condiment text-neon text-[36px] md:text-[48px] absolute -rotate-2 opacity-90 right-4 sm:right-10 top-[28%] normal-case pointer-events-none"
+              >
                 Aptos nft collection
               </span>
 
@@ -197,7 +203,10 @@ function Index() {
               Hello!
               <br />
               I'm Orbix
-              <span className="font-condiment text-neon normal-case text-[28px] sm:text-[52px] md:text-[68px] absolute -rotate-1 right-0 sm:-right-16 -bottom-6 sm:-bottom-8 pointer-events-none">
+              <span
+                aria-hidden="true"
+                className="font-condiment text-neon normal-case text-[28px] sm:text-[52px] md:text-[68px] absolute -rotate-1 right-0 sm:-right-16 -bottom-6 sm:-bottom-8 pointer-events-none"
+              >
                 Orbix
               </span>
             </h2>
@@ -227,7 +236,10 @@ function Index() {
             >
               Collection of
               <span className="block ml-12 md:ml-24 lg:ml-32">
-                <span className="font-condiment text-neon normal-case">Ocean</span> artifacts
+                <span aria-hidden="true" className="font-condiment text-neon normal-case">
+                  Ocean
+                </span>{" "}
+                artifacts
               </span>
             </h2>
             <Link
@@ -300,7 +312,10 @@ function Index() {
         <div className="absolute inset-0 flex items-center">
           <div className="relative w-full px-4 sm:px-6 md:px-10 lg:pr-[20%] lg:pl-[15%] text-right">
             <h2 className="relative inline-block font-grotesk uppercase text-cream text-[20px] sm:text-[32px] md:text-[48px] lg:text-[60px] leading-[1.2]">
-              <span className="font-condiment text-neon normal-case text-[24px] sm:text-[36px] md:text-[48px] lg:text-[68px] absolute -top-[1.2em] left-0 -rotate-1">
+              <span
+                aria-hidden="true"
+                className="font-condiment text-neon normal-case text-[24px] sm:text-[36px] md:text-[48px] lg:text-[68px] absolute -top-[1.2em] left-0 -rotate-1"
+              >
                 Dive deep
               </span>
               <span className="block mb-3 sm:mb-6 md:mb-8 lg:mb-12">Dive in.</span>

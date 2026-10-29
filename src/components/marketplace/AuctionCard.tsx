@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,13 +10,15 @@ import {
   aptToOctas,
   truncateAddress,
   createEntryPayload,
-  confirmTransaction,
   normalizeAddress,
   isSameAddress,
   decodeVectorOrHexToString,
-  sanitizeMediaUri,
+  resolveMediaUrl,
+  isVideoUri,
   getRarityInfo,
+  getNowSeconds,
 } from "@/lib/aptosClient";
+import { useMarketplaceTx } from "@/hooks/useMarketplaceTx";
 import { Auction } from "@/types/marketplace";
 import { Clock, Gavel, Loader2, Award, CheckCircle2, XCircle } from "lucide-react";
 
@@ -32,15 +34,66 @@ interface NFTMetadata {
   rarity: number;
 }
 
+function LazyAuctionMedia({ src, alt, isVideo }: { src: string; alt: string; isVideo: boolean }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) {
+          setIsVisible(entry.isIntersecting);
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} className="absolute inset-0 w-full h-full">
+      {isVideo ? (
+        isVisible ? (
+          <video
+            src={src}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-navy-900/60 animate-pulse" />
+        )
+      ) : (
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src =
+              "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80";
+          }}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+      )}
+    </div>
+  );
+}
+
 export function AuctionCard({ auction, onBidPlaced }: Props) {
-  const { account, connected, signAndSubmitTransaction } = useWallet();
+  const { account, connected } = useWallet();
+  const { executeTx, isSubmitting } = useMarketplaceTx();
   const walletAddress = account?.address ? String(account.address) : "";
   const [nftDetails, setNftDetails] = useState<NFTMetadata | null>(null);
   const [bidInput, setBidInput] = useState("");
   const [timeLeft, setTimeLeft] = useState("");
   const [isEnded, setIsEnded] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [finalizing, setFinalizing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -71,7 +124,7 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
 
   useEffect(() => {
     const updateCountdown = () => {
-      const now = Math.floor(Date.now() / 1000);
+      const now = getNowSeconds();
       const remaining = auction.end_time - now;
 
       if (remaining <= 0) {
@@ -134,38 +187,31 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
       return;
     }
 
-    setLoading(true);
-    const toastId = toast.loading(`Placing bid of ${amount} APT...`);
+    const octas = aptToOctas(bidInput);
+    if (octas <= 0) {
+      toast.error("Please enter a valid bid amount");
+      return;
+    }
 
-    try {
-      const amountInOctas = aptToOctas(amount).toString();
+    const payload = createEntryPayload("place_bid", [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      auction.nft_id.toString(),
+      octas.toString(),
+    ]);
 
-      const payload = createEntryPayload("place_bid", [
-        MARKETPLACE_CONTRACT_ADDRESS,
-        auction.nft_id.toString(),
-        amountInOctas,
-      ]);
+    const txHash = await executeTx(payload, {
+      title: `Placing Bid on #${auction.nft_id}`,
+      description: `Escrowing ${amount} APT for highest bid...`,
+      successTitle: "Bid Accepted!",
+      successDescription: `You are now the highest bidder at ${amount} APT.`,
+      onSuccess: () => {
+        setBidInput("");
+        onBidPlaced?.();
+      },
+    });
 
-      const response: any = await signAndSubmitTransaction(payload);
-      toast.loading("Confirming bid on chain...", { id: toastId });
-      await confirmTransaction(response);
-
-      toast.success("Bid placed successfully!", { id: toastId });
-      setBidInput("");
-      onBidPlaced?.();
-    } catch (err: any) {
-      console.error("Error placing bid:", err);
-      let msg = err?.message || "Failed to place bid";
-      if (msg.includes("EALREADY_HIGHEST_BIDDER") || msg.includes("0x3ed")) {
-        msg = "You are already the highest bidder";
-      } else if (msg.includes("EBID_TOO_LOW") || msg.includes("0x3ee")) {
-        msg = "Bid amount must exceed current bid";
-      } else if (msg.includes("EAUCTION_EXPIRED") || msg.includes("0x3f0")) {
-        msg = "Auction has already expired";
-      }
-      toast.error(msg, { id: toastId });
-    } finally {
-      setLoading(false);
+    if (txHash && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("orbix:nft-updated"));
     }
   };
 
@@ -175,41 +221,33 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
       return;
     }
 
-    setFinalizing(true);
-    const toastId = toast.loading(
-      !hasBids && !isEnded
-        ? `Cancelling auction for Object #${auction.nft_id}...`
-        : `Settling auction for Object #${auction.nft_id}...`,
-    );
+    const isEarlyCancel = !hasBids && !isEnded;
+    const payload = createEntryPayload("finalize_auction", [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      auction.nft_id.toString(),
+    ]);
 
-    try {
-      const payload = createEntryPayload("finalize_auction", [
-        MARKETPLACE_CONTRACT_ADDRESS,
-        auction.nft_id.toString(),
-      ]);
-
-      const response: any = await signAndSubmitTransaction(payload);
-      toast.loading("Confirming settlement on Aptos...", { id: toastId });
-      await confirmTransaction(response);
-
-      toast.success(
-        hasBids
-          ? "Auction settled! NFT transferred and APT proceeds disbursed."
-          : "Auction closed with no bids.",
-        { id: toastId },
-      );
-      onBidPlaced?.();
-    } catch (err: any) {
-      console.error("Error finalizing auction:", err);
-      toast.error(err?.message || "Failed to finalize auction", { id: toastId });
-    } finally {
-      setFinalizing(false);
-    }
+    await executeTx(payload, {
+      title: isEarlyCancel
+        ? `Cancelling Auction for #${auction.nft_id}`
+        : `Settling Auction for #${auction.nft_id}`,
+      description: isEarlyCancel
+        ? "Withdrawing artifact from auction..."
+        : "Transferring artifact and disbursing escrowed proceeds...",
+      successTitle: isEarlyCancel ? "Auction Cancelled" : "Auction Settled!",
+      successDescription: isEarlyCancel
+        ? "Artifact restored to your collection."
+        : hasBids
+          ? "Artifact transferred and proceeds disbursed."
+          : "Auction concluded with no bids.",
+      onSuccess: () => {
+        onBidPlaced?.();
+      },
+    });
   };
 
-  const safeUri = nftDetails?.uri ? sanitizeMediaUri(nftDetails.uri) : "/videos/nft1.mp4";
-  const isVideo =
-    safeUri.endsWith(".mp4") || safeUri.endsWith(".webm") || safeUri.includes("cloudfront.net");
+  const safeUri = nftDetails?.uri ? resolveMediaUrl(nftDetails.uri) : "/videos/nft1.mp4";
+  const isVideo = isVideoUri(safeUri);
   const rarityInfo = getRarityInfo(nftDetails ? nftDetails.rarity : 1);
   const displayName = nftDetails?.name || `Object #${auction.nft_id}`;
 
@@ -218,29 +256,9 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
       <div>
         {/* Media Preview */}
         <div className="relative pb-[100%] rounded-2xl overflow-hidden bg-white/5 mb-4 group">
-          {isVideo ? (
-            <video
-              src={safeUri}
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="metadata"
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-          ) : (
-            <img
-              src={safeUri}
-              alt={displayName}
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src =
-                  "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80";
-              }}
-              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-          )}
+          <LazyAuctionMedia src={safeUri} alt={displayName} isVideo={isVideo} />
 
-          <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
             <span
               className={`px-3 py-1 rounded-full text-[11px] font-mono border backdrop-blur-md ${rarityInfo.badgeClass}`}
             >
@@ -298,32 +316,32 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
         <div className="mt-2 space-y-2">
           <Button
             type="button"
-            disabled={finalizing || !connected}
+            disabled={isSubmitting || !connected}
             onClick={handleFinalizeAuction}
             className="w-full orb-button text-cream font-mono text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
           >
-            {finalizing ? (
+            {isSubmitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <CheckCircle2 className="w-4 h-4" />
             )}
-            <span>{finalizing ? "Settling..." : "Finalize & Settle Auction"}</span>
+            <span>{isSubmitting ? "Settling..." : "Finalize & Settle Auction"}</span>
           </Button>
         </div>
       ) : isSeller && !hasBids ? (
         <div className="mt-2 space-y-2">
           <Button
             type="button"
-            disabled={finalizing || !connected}
+            disabled={isSubmitting || !connected}
             onClick={handleFinalizeAuction}
             className="w-full border-rose-800 bg-rose-950/60 hover:bg-rose-950 text-rose-300 font-mono text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
           >
-            {finalizing ? (
+            {isSubmitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <XCircle className="w-4 h-4" />
             )}
-            <span>{finalizing ? "Cancelling..." : "Cancel Auction (No Bids)"}</span>
+            <span>{isSubmitting ? "Cancelling..." : "Cancel Auction (No Bids)"}</span>
           </Button>
         </div>
       ) : (
@@ -341,10 +359,10 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
             />
             <Button
               type="submit"
-              disabled={Boolean(loading || !connected || isHighestBidder || isSeller)}
+              disabled={Boolean(isSubmitting || !connected || isHighestBidder || isSeller)}
               className="orb-button text-cream font-mono text-xs px-4 py-2 rounded-xl flex items-center justify-center gap-1.5 whitespace-nowrap w-full min-[380px]:w-auto cursor-pointer"
             >
-              {loading ? (
+              {isSubmitting ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
                 <Gavel className="w-3.5 h-3.5" />

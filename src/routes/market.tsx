@@ -39,12 +39,14 @@ function MarketPage() {
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [rarityFilter, setRarityFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
 
   const loadData = async () => {
     setLoading(true);
+    setHasError(false);
     try {
       // Fetch direct listings and active auctions concurrently
       const [forSaleResult, auctionRes]: [any, any] = await Promise.all([
@@ -65,9 +67,27 @@ function MarketPage() {
           }),
       ]);
 
+      const parsedAuctions: Auction[] = Array.isArray(auctionRes?.[0])
+        ? auctionRes[0].map((a: any) => ({
+            nft_id: parseInt(a.nft_id, 10),
+            seller: a.seller,
+            start_price: parseInt(a.start_price, 10),
+            current_bid: parseInt(a.current_bid, 10),
+            highest_bidder: a.highest_bidder,
+            end_time: parseInt(a.end_time, 10),
+            active: Boolean(a.active),
+          }))
+        : [];
+
+      setAuctions(parsedAuctions);
+
+      const activeAuctionNftIds = new Set(
+        parsedAuctions.filter((a) => a.active).map((a) => a.nft_id),
+      );
+
       const listedList: ListedNFT[] = Array.isArray(forSaleResult?.[0]) ? forSaleResult[0] : [];
 
-      // Fetch full details concurrently
+      // Fetch full details concurrently with error protection
       const fullNfts: NFT[] = (
         await Promise.all(
           listedList.map(async (item) => {
@@ -79,8 +99,9 @@ function MarketPage() {
               });
 
               if (Array.isArray(detailRes)) {
+                const nftId = parseInt(detailRes[0], 10);
                 return {
-                  id: parseInt(detailRes[0], 10),
+                  id: nftId,
                   owner: detailRes[1],
                   name: decodeVectorOrHexToString(detailRes[2]),
                   description: decodeVectorOrHexToString(detailRes[3]),
@@ -88,6 +109,7 @@ function MarketPage() {
                   price: parseInt(detailRes[5], 10),
                   for_sale: Boolean(detailRes[6]),
                   rarity: parseInt(detailRes[7], 10),
+                  in_auction: activeAuctionNftIds.has(nftId),
                 } as NFT;
               }
               return null;
@@ -100,23 +122,9 @@ function MarketPage() {
       ).filter((n): n is NFT => n !== null);
 
       setNfts(fullNfts);
-
-      if (Array.isArray(auctionRes?.[0])) {
-        const parsedAuctions: Auction[] = auctionRes[0].map((a: any) => ({
-          nft_id: parseInt(a.nft_id, 10),
-          seller: a.seller,
-          start_price: parseInt(a.start_price, 10),
-          current_bid: parseInt(a.current_bid, 10),
-          highest_bidder: a.highest_bidder,
-          end_time: parseInt(a.end_time, 10),
-          active: Boolean(a.active),
-        }));
-        setAuctions(parsedAuctions);
-      } else {
-        setAuctions([]);
-      }
     } catch (err) {
       console.error("Marketplace fetch error:", err);
+      setHasError(true);
     } finally {
       setLoading(false);
     }
@@ -180,7 +188,7 @@ function MarketPage() {
             variant="outline"
             onClick={loadData}
             disabled={loading}
-            className="liquid-glass text-cream border-white/20 hover:bg-white/10 font-mono text-xs flex items-center gap-2 rounded-xl"
+            className="liquid-glass text-cream border-white/20 hover:bg-white/10 font-mono text-xs flex items-center gap-2 rounded-xl cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             <span>Sync Chain</span>
@@ -199,14 +207,14 @@ function MarketPage() {
           <TabsList className="liquid-glass border border-white/10 p-1 rounded-2xl w-full grid grid-cols-2 sm:flex sm:w-auto h-auto">
             <TabsTrigger
               value="marketplace"
-              className="data-[state=active]:bg-neon data-[state=active]:text-cream rounded-xl font-mono text-xs px-3 sm:px-4 py-2 text-center"
+              className="data-[state=active]:bg-neon data-[state=active]:text-cream rounded-xl font-mono text-xs px-3 sm:px-4 py-2 text-center cursor-pointer"
             >
               <ShoppingBag className="w-3.5 h-3.5 mr-1.5 shrink-0" /> Direct Listings ({nfts.length}
               )
             </TabsTrigger>
             <TabsTrigger
               value="auctions"
-              className="data-[state=active]:bg-neon data-[state=active]:text-cream rounded-xl font-mono text-xs px-3 sm:px-4 py-2 text-center"
+              className="data-[state=active]:bg-neon data-[state=active]:text-cream rounded-xl font-mono text-xs px-3 sm:px-4 py-2 text-center cursor-pointer"
             >
               <Gavel className="w-3.5 h-3.5 mr-1.5 shrink-0" /> Live Auctions ({auctions.length})
             </TabsTrigger>
@@ -264,6 +272,23 @@ function MarketPage() {
         <div className="py-24 flex flex-col items-center justify-center gap-3 text-cream/50 font-mono text-sm">
           <Loader2 className="w-8 h-8 animate-spin text-neon" />
           <span>Reading contract data from Aptos {APTOS_NETWORK.toUpperCase()}...</span>
+        </div>
+      ) : hasError ? (
+        <div className="py-20 liquid-glass rounded-3xl border border-rose-500/30 text-center space-y-4 p-8 max-w-md mx-auto">
+          <AlertCircle className="w-8 h-8 text-rose-400 mx-auto" />
+          <h3 className="font-grotesk uppercase text-2xl text-cream">
+            Unable to Fetch Marketplace
+          </h3>
+          <p className="text-xs font-mono text-cream/60 leading-relaxed">
+            We couldn't connect to the Aptos node or the marketplace contract. Please check your
+            connection and try again.
+          </p>
+          <Button
+            onClick={loadData}
+            className="orb-button text-cream font-mono text-xs px-6 py-2 rounded-xl uppercase cursor-pointer"
+          >
+            Retry Connection
+          </Button>
         </div>
       ) : activeTab === "marketplace" ? (
         filteredNfts.length === 0 ? (

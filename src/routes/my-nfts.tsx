@@ -1,22 +1,24 @@
-// src/routes/my-nfts.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { NFTCard } from "@/components/marketplace/NFTCard";
 import { MintNFTModal } from "@/components/marketplace/MintNFTModal";
+import { WalletButton } from "@/components/wallet/WalletButton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { toast } from "sonner";
 import {
   aptosClient,
   MARKETPLACE_CONTRACT_ADDRESS,
   decodeVectorToString,
   octasToApt,
   createEntryPayload,
-  sanitizeMediaUri,
-  confirmTransaction,
+  resolveMediaUrl,
+  isVideoUri,
+  truncateAddress,
   isSameAddress,
+  getNowSeconds,
 } from "@/lib/aptosClient";
+import { useMarketplaceTx } from "@/hooks/useMarketplaceTx";
 import { NFT, Offer } from "@/types/marketplace";
 import {
   Wallet,
@@ -28,6 +30,9 @@ import {
   XCircle,
   Sparkles,
   Tag,
+  Inbox,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/my-nfts")({
@@ -46,13 +51,30 @@ interface OutgoingOfferItem extends Offer {
   nft_uri: string;
 }
 
+interface IncomingOfferItem extends Offer {
+  offer_index: number;
+  nft_name: string;
+  nft_uri: string;
+}
+
+function formatApt(amount: number): string {
+  if (amount === 0) return "0 APT";
+  if (amount < 0.0001) return "< 0.0001 APT";
+  return `${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })} APT`;
+}
+
 function MyNFTsPage() {
-  const { account, connected, signAndSubmitTransaction } = useWallet();
+  const { account, connected } = useWallet();
+  const { executeTx, isSubmitting } = useMarketplaceTx();
   const walletAddress = account?.address ? String(account.address) : "";
+
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [outgoingOffers, setOutgoingOffers] = useState<OutgoingOfferItem[]>([]);
+  const [incomingOffers, setIncomingOffers] = useState<IncomingOfferItem[]>([]);
   const [loadingNfts, setLoadingNfts] = useState(false);
   const [loadingOffers, setLoadingOffers] = useState(false);
+  const [loadingIncoming, setLoadingIncoming] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const [cancellingKey, setCancellingKey] = useState<string | null>(null);
   const [mintOpen, setMintOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("owned");
@@ -65,6 +87,7 @@ function MyNFTsPage() {
     }
 
     setLoadingNfts(true);
+    setHasError(false);
     try {
       const idsResult: any = await aptosClient.view({
         function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_all_nfts_for_owner`,
@@ -78,37 +101,44 @@ function MyNFTsPage() {
         return;
       }
 
+      // Safe individual fetch so 1 corrupt artifact won't crash the whole collection
       const detailsPromises = rawIds.map(async (idRaw) => {
-        const nftId = Number(idRaw);
-        const res: any = await aptosClient.view({
-          function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_nft_details`,
-          type_arguments: [],
-          arguments: [MARKETPLACE_CONTRACT_ADDRESS, nftId.toString()],
-        });
+        try {
+          const nftId = Number(idRaw);
+          const res: any = await aptosClient.view({
+            function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_nft_details`,
+            type_arguments: [],
+            arguments: [MARKETPLACE_CONTRACT_ADDRESS, nftId.toString()],
+          });
 
-        return {
-          id: Number(res[0]),
-          owner: String(res[1]),
-          name: decodeVectorToString(res[2]),
-          description: decodeVectorToString(res[3]),
-          uri: decodeVectorToString(res[4]),
-          price: Number(res[5]),
-          for_sale: Boolean(res[6]),
-          rarity: Number(res[7]),
-        } as NFT;
+          return {
+            id: Number(res[0]),
+            owner: String(res[1]),
+            name: decodeVectorToString(res[2]),
+            description: decodeVectorToString(res[3]),
+            uri: decodeVectorToString(res[4]),
+            price: Number(res[5]),
+            for_sale: Boolean(res[6]),
+            rarity: Number(res[7]),
+          } as NFT;
+        } catch (err) {
+          console.warn(`Failed to fetch NFT #${idRaw}:`, err);
+          return null;
+        }
       });
 
-      const resolved = await Promise.all(detailsPromises);
+      const resolved = (await Promise.all(detailsPromises)).filter((x): x is NFT => x !== null);
       setNfts(resolved);
     } catch (err) {
       console.error("Failed to fetch owned NFTs:", err);
+      setHasError(true);
       setNfts([]);
     } finally {
       setLoadingNfts(false);
     }
   }, [connected, walletAddress]);
 
-  // 2. Fetch Outgoing Offers via get_user_offers + resolve exact offer_index & NFT metadata
+  // 2. Fetch Outgoing Offers via get_user_offers
   const fetchMyOutgoingOffers = useCallback(async () => {
     if (!connected || !walletAddress) {
       setOutgoingOffers([]);
@@ -129,53 +159,57 @@ function MyNFTsPage() {
         return;
       }
 
-      // Extract unique NFT IDs where this user has pending offers
       const uniqueNftIds = Array.from(new Set(rawUserOffers.map((o: any) => Number(o.nft_id))));
 
       const enrichedGroups = await Promise.all(
         uniqueNftIds.map(async (nftId) => {
-          const [nftDetailsRes, nftOffersRes]: [any, any] = await Promise.all([
-            aptosClient.view({
-              function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_nft_details`,
-              type_arguments: [],
-              arguments: [MARKETPLACE_CONTRACT_ADDRESS, nftId.toString()],
-            }),
-            aptosClient.view({
-              function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_offers_for_nft`,
-              type_arguments: [],
-              arguments: [MARKETPLACE_CONTRACT_ADDRESS, nftId.toString()],
-            }),
-          ]);
+          try {
+            const [nftDetailsRes, nftOffersRes]: [any, any] = await Promise.all([
+              aptosClient.view({
+                function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_nft_details`,
+                type_arguments: [],
+                arguments: [MARKETPLACE_CONTRACT_ADDRESS, nftId.toString()],
+              }),
+              aptosClient.view({
+                function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_offers_for_nft`,
+                type_arguments: [],
+                arguments: [MARKETPLACE_CONTRACT_ADDRESS, nftId.toString()],
+              }),
+            ]);
 
-          const nftName = nftDetailsRes
-            ? decodeVectorToString(nftDetailsRes[2])
-            : `Object #${nftId}`;
-          const nftUri = nftDetailsRes
-            ? decodeVectorToString(nftDetailsRes[4])
-            : "/videos/nft1.mp4";
-          const allOffersForNft: any[] = Array.isArray(nftOffersRes?.[0]) ? nftOffersRes[0] : [];
+            const nftName = nftDetailsRes
+              ? decodeVectorToString(nftDetailsRes[2])
+              : `Object #${nftId}`;
+            const nftUri = nftDetailsRes
+              ? decodeVectorToString(nftDetailsRes[4])
+              : "/videos/nft1.mp4";
+            const allOffersForNft: any[] = Array.isArray(nftOffersRes?.[0]) ? nftOffersRes[0] : [];
 
-          const matches: OutgoingOfferItem[] = [];
-          allOffersForNft.forEach((o: any, idx: number) => {
-            const isUser = Boolean(
-              o.buyer && walletAddress && isSameAddress(o.buyer, walletAddress),
-            );
-            const status = Number(o.status);
-            if (isUser && status === 0) {
-              matches.push({
-                nft_id: nftId,
-                buyer: String(o.buyer),
-                price: Number(o.price),
-                expiration: Number(o.expiration),
-                status,
-                offer_index: idx,
-                nft_name: nftName || `Object #${nftId}`,
-                nft_uri: sanitizeMediaUri(nftUri) || "/videos/nft1.mp4",
-              });
-            }
-          });
+            const matches: OutgoingOfferItem[] = [];
+            allOffersForNft.forEach((o: any, idx: number) => {
+              const isUser = Boolean(
+                o.buyer && walletAddress && isSameAddress(o.buyer, walletAddress),
+              );
+              const status = Number(o.status);
+              if (isUser && status === 0) {
+                matches.push({
+                  nft_id: nftId,
+                  buyer: String(o.buyer),
+                  price: Number(o.price),
+                  expiration: Number(o.expiration),
+                  status,
+                  offer_index: idx,
+                  nft_name: nftName || `Object #${nftId}`,
+                  nft_uri: resolveMediaUrl(nftUri) || "/videos/nft1.mp4",
+                });
+              }
+            });
 
-          return matches;
+            return matches;
+          } catch (err) {
+            console.warn(`Failed to enrich outgoing offer for NFT #${nftId}:`, err);
+            return [];
+          }
         }),
       );
 
@@ -188,6 +222,61 @@ function MyNFTsPage() {
     }
   }, [connected, walletAddress]);
 
+  // 3. Fetch Incoming Offers on Owned NFTs
+  const fetchIncomingOffers = useCallback(async () => {
+    if (!connected || !walletAddress || nfts.length === 0) {
+      setIncomingOffers([]);
+      return;
+    }
+
+    setLoadingIncoming(true);
+    try {
+      const incomingList: IncomingOfferItem[] = [];
+
+      await Promise.all(
+        nfts.map(async (nft) => {
+          try {
+            const nftOffersRes: any = await aptosClient.view({
+              function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_offers_for_nft`,
+              type_arguments: [],
+              arguments: [MARKETPLACE_CONTRACT_ADDRESS, nft.id.toString()],
+            });
+
+            const allOffers: any[] = Array.isArray(nftOffersRes?.[0]) ? nftOffersRes[0] : [];
+            allOffers.forEach((o: any, idx: number) => {
+              const status = Number(o.status);
+              const isPending = status === 0;
+              const isNotOwner = !isSameAddress(o.buyer, walletAddress);
+              const notExpired = Number(o.expiration) > getNowSeconds();
+
+              if (isPending && isNotOwner && notExpired) {
+                incomingList.push({
+                  nft_id: nft.id,
+                  buyer: String(o.buyer),
+                  price: Number(o.price),
+                  expiration: Number(o.expiration),
+                  status,
+                  offer_index: idx,
+                  nft_name: nft.name || `Object #${nft.id}`,
+                  nft_uri: resolveMediaUrl(nft.uri) || "/videos/nft1.mp4",
+                });
+              }
+            });
+          } catch (err) {
+            console.warn(`Failed to fetch offers for owned NFT #${nft.id}:`, err);
+          }
+        }),
+      );
+
+      setIncomingOffers(incomingList);
+    } catch (err) {
+      console.error("Failed to fetch incoming offers:", err);
+      setIncomingOffers([]);
+    } finally {
+      setLoadingIncoming(false);
+    }
+  }, [connected, walletAddress, nfts]);
+
   const handleRefreshAll = useCallback(() => {
     fetchMyNFTs();
     fetchMyOutgoingOffers();
@@ -198,6 +287,14 @@ function MyNFTsPage() {
   }, [handleRefreshAll]);
 
   useEffect(() => {
+    if (nfts.length > 0) {
+      fetchIncomingOffers();
+    } else {
+      setIncomingOffers([]);
+    }
+  }, [nfts, fetchIncomingOffers]);
+
+  useEffect(() => {
     const handleUpdate = () => {
       handleRefreshAll();
     };
@@ -206,34 +303,62 @@ function MyNFTsPage() {
   }, [handleRefreshAll]);
 
   const handleCancelOutgoingOffer = async (offer: OutgoingOfferItem) => {
-    if (!connected || !account) return;
     const key = `${offer.nft_id}-${offer.offer_index}`;
     setCancellingKey(key);
-    const toastId = toast.loading(
-      `Cancelling ${octasToApt(offer.price)} APT offer on ${offer.nft_name}...`,
-    );
 
-    try {
-      const payload = createEntryPayload("cancel_offer", [
-        MARKETPLACE_CONTRACT_ADDRESS,
-        offer.nft_id.toString(),
-        offer.offer_index.toString(),
-      ]);
+    const payload = createEntryPayload("cancel_offer", [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      offer.nft_id.toString(),
+      offer.offer_index.toString(),
+    ]);
 
-      const response: any = await signAndSubmitTransaction(payload);
-      toast.loading("Confirming escrow refund on Aptos...", { id: toastId });
-      await confirmTransaction(response);
+    await executeTx(payload, {
+      title: `Cancelling Offer on ${offer.nft_name}`,
+      description: `Refunding ${octasToApt(offer.price)} APT from contract escrow...`,
+      successTitle: "Offer Cancelled",
+      successDescription: `${octasToApt(offer.price)} APT refunded to your wallet.`,
+      onSuccess: () => {
+        fetchMyOutgoingOffers();
+      },
+    });
 
-      toast.success(`Offer cancelled! ${octasToApt(offer.price)} APT refunded to your wallet.`, {
-        id: toastId,
-      });
-      fetchMyOutgoingOffers();
-    } catch (err: any) {
-      console.error("Error cancelling offer:", err);
-      toast.error(err?.message || "Failed to cancel offer", { id: toastId });
-    } finally {
-      setCancellingKey(null);
-    }
+    setCancellingKey(null);
+  };
+
+  const handleAcceptIncomingOffer = async (offer: IncomingOfferItem) => {
+    const payload = createEntryPayload("accept_offer", [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      offer.nft_id.toString(),
+      offer.offer_index.toString(),
+    ]);
+
+    await executeTx(payload, {
+      title: `Accepting Offer on ${offer.nft_name}`,
+      description: `Selling artifact for ${octasToApt(offer.price)} APT...`,
+      successTitle: "Offer Accepted!",
+      successDescription: `Transferred ${offer.nft_name} to ${truncateAddress(offer.buyer)}.`,
+      onSuccess: () => {
+        handleRefreshAll();
+      },
+    });
+  };
+
+  const handleRejectIncomingOffer = async (offer: IncomingOfferItem) => {
+    const payload = createEntryPayload("reject_offer", [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      offer.nft_id.toString(),
+      offer.offer_index.toString(),
+    ]);
+
+    await executeTx(payload, {
+      title: `Rejecting Offer on ${offer.nft_name}`,
+      description: "Returning escrowed APT to the buyer...",
+      successTitle: "Offer Rejected",
+      successDescription: "Buyer's offer was declined and refunded.",
+      onSuccess: () => {
+        fetchIncomingOffers();
+      },
+    });
   };
 
   // Calculate total APT currently locked in outgoing offers
@@ -268,6 +393,7 @@ function MyNFTsPage() {
 
             <Button
               onClick={() => setMintOpen(true)}
+              disabled={!connected}
               className="orb-button text-cream font-mono text-xs font-bold px-5 py-2.5 h-auto rounded-xl flex items-center gap-2 uppercase tracking-wider cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
@@ -277,28 +403,58 @@ function MyNFTsPage() {
         </div>
 
         {!connected ? (
-          <div className="liquid-glass rounded-3xl p-12 border border-white/10 text-center max-w-xl mx-auto my-12 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-neon/15 border border-neon/30 flex items-center justify-center mx-auto text-neon">
-              <Wallet className="w-6 h-6" />
+          <div className="liquid-glass rounded-3xl p-12 border border-white/10 text-center max-w-xl mx-auto my-12 space-y-6">
+            <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-neon">
+              <Wallet className="w-8 h-8" />
             </div>
-            <h2 className="font-grotesk text-2xl uppercase tracking-wide text-cream">
-              Connect Your Wallet
-            </h2>
-            <p className="font-mono text-xs text-cream/70 leading-relaxed">
-              Connect your Aptos wallet or sign in with Google to view your owned ocean artifacts
-              and manage your active on-chain offers.
+            <div className="space-y-2">
+              <h2 className="font-grotesk text-2xl uppercase tracking-wide text-cream">
+                Connect Your Wallet
+              </h2>
+              <p className="text-sm font-mono text-cream/60">
+                Connect an Aptos wallet to view your ocean artifacts, manage listings, and inspect
+                pending offers.
+              </p>
+            </div>
+            <div className="flex justify-center pt-2">
+              <WalletButton />
+            </div>
+          </div>
+        ) : hasError ? (
+          <div className="liquid-glass rounded-3xl p-12 border border-rose-500/30 text-center max-w-lg mx-auto space-y-4">
+            <AlertCircle className="w-8 h-8 text-rose-400 mx-auto" />
+            <h3 className="font-grotesk text-2xl uppercase tracking-wide text-cream">
+              Failed to Load Collection
+            </h3>
+            <p className="font-mono text-xs text-cream/60">
+              There was an issue querying the Aptos node for your artifacts.
             </p>
+            <Button
+              onClick={handleRefreshAll}
+              className="orb-button text-cream font-mono text-xs px-6 py-2.5 rounded-xl uppercase cursor-pointer"
+            >
+              Retry
+            </Button>
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <TabsList className="liquid-glass border border-white/10 p-1 rounded-2xl h-auto w-fit">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            {/* Tabs List Navigation */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+              <TabsList className="liquid-glass p-1 rounded-2xl border border-white/10 flex flex-wrap h-auto gap-1">
                 <TabsTrigger
                   value="owned"
                   className="font-mono text-xs uppercase tracking-wider px-4 py-2 rounded-xl data-[state=active]:bg-neon data-[state=active]:text-cream flex items-center gap-2 cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>Owned Artifacts ({nfts.length})</span>
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="incoming"
+                  className="font-mono text-xs uppercase tracking-wider px-4 py-2 rounded-xl data-[state=active]:bg-neon data-[state=active]:text-cream flex items-center gap-2 cursor-pointer"
+                >
+                  <Inbox className="w-3.5 h-3.5" />
+                  <span>Incoming Offers ({incomingOffers.length})</span>
                 </TabsTrigger>
 
                 <TabsTrigger
@@ -313,7 +469,7 @@ function MyNFTsPage() {
               {activeTab === "offers" && outgoingOffers.length > 0 && (
                 <div className="liquid-glass px-4 py-2 rounded-xl border border-white/10 font-mono text-xs flex items-center gap-2">
                   <span className="text-cream/60">Total Escrowed in Offers:</span>
-                  <span className="text-neon font-bold">{totalEscrowedApt.toFixed(2)} APT</span>
+                  <span className="text-neon font-bold">{formatApt(totalEscrowedApt)}</span>
                 </div>
               )}
             </div>
@@ -351,7 +507,116 @@ function MyNFTsPage() {
               )}
             </TabsContent>
 
-            {/* TAB 2: My Outgoing Offers */}
+            {/* TAB 2: Incoming Offers */}
+            <TabsContent value="incoming" className="mt-0">
+              {loadingIncoming ? (
+                <div className="py-24 flex flex-col items-center justify-center gap-3 text-cream/60 font-mono text-xs">
+                  <Loader2 className="w-8 h-8 animate-spin text-neon" />
+                  <span>Checking incoming offers on your artifacts...</span>
+                </div>
+              ) : incomingOffers.length === 0 ? (
+                <div className="liquid-glass rounded-3xl p-12 border border-white/10 text-center max-w-lg mx-auto space-y-3">
+                  <Inbox className="w-8 h-8 text-neon mx-auto opacity-80" />
+                  <h3 className="font-grotesk text-2xl uppercase tracking-wide text-cream">
+                    No Incoming Offers
+                  </h3>
+                  <p className="font-mono text-xs text-cream/60 leading-relaxed">
+                    You have no pending offers from other buyers on your artifacts. When collectors
+                    submit escrowed offers on your items, you can review and accept them here.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {incomingOffers.map((offer) => {
+                    const isVideo = isVideoUri(offer.nft_uri);
+                    const itemKey = `${offer.nft_id}-${offer.offer_index}`;
+
+                    return (
+                      <div
+                        key={itemKey}
+                        className="liquid-glass rounded-3xl p-5 border border-white/10 hover:border-neon/40 transition-all flex flex-col justify-between gap-4"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white/5 shrink-0 border border-white/10 relative">
+                            {isVideo ? (
+                              <video
+                                src={offer.nft_uri}
+                                muted
+                                loop
+                                autoPlay
+                                playsInline
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <img
+                                src={offer.nft_uri}
+                                alt={offer.nft_name}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-grotesk text-lg uppercase tracking-wide text-cream truncate">
+                              {offer.nft_name}
+                            </h4>
+                            <span className="font-mono text-xs text-cream/40">#{offer.nft_id}</span>
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="font-mono text-xs text-cream/60">From:</span>
+                              <span className="font-mono text-xs text-cream font-medium">
+                                {truncateAddress(offer.buyer)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-3.5 rounded-2xl bg-white/5 border border-white/5 space-y-2 text-xs font-mono">
+                          <div className="flex justify-between items-center">
+                            <span className="text-cream/60">Offered Price:</span>
+                            <span className="text-neon font-bold text-sm">
+                              {octasToApt(offer.price)} APT
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-cream/60">Expires:</span>
+                            <span className="text-cream/80 flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-neon" />
+                              {new Date(offer.expiration * 1000).toLocaleString([], {
+                                dateStyle: "short",
+                                timeStyle: "short",
+                              })}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            disabled={isSubmitting}
+                            onClick={() => handleAcceptIncomingOffer(offer)}
+                            className="orb-button text-cream font-mono text-xs py-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            <span>Accept</span>
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            disabled={isSubmitting}
+                            onClick={() => handleRejectIncomingOffer(offer)}
+                            className="border-rose-800 bg-rose-950/60 hover:bg-rose-950 text-rose-300 font-mono text-xs py-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Reject</span>
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* TAB 3: My Outgoing Offers */}
             <TabsContent value="offers" className="mt-0">
               {loadingOffers ? (
                 <div className="py-24 flex flex-col items-center justify-center gap-3 text-cream/60 font-mono text-xs">
@@ -373,13 +638,10 @@ function MyNFTsPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {outgoingOffers.map((offer) => {
-                    const isExpired = Date.now() / 1000 > offer.expiration;
+                    const isExpired = getNowSeconds() > offer.expiration;
                     const itemKey = `${offer.nft_id}-${offer.offer_index}`;
                     const isCancelling = cancellingKey === itemKey;
-                    const isVideo =
-                      offer.nft_uri.endsWith(".mp4") ||
-                      offer.nft_uri.endsWith(".webm") ||
-                      offer.nft_uri.includes("cloudfront.net");
+                    const isVideo = isVideoUri(offer.nft_uri);
 
                     return (
                       <div
@@ -387,7 +649,6 @@ function MyNFTsPage() {
                         className="liquid-glass rounded-3xl p-5 border border-white/10 hover:border-neon/40 transition-all flex flex-col justify-between gap-4"
                       >
                         <div className="flex items-center gap-4">
-                          {/* Thumbnail */}
                           <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white/5 shrink-0 border border-white/10 relative">
                             {isVideo ? (
                               <video
@@ -407,7 +668,6 @@ function MyNFTsPage() {
                             )}
                           </div>
 
-                          {/* Title & Status */}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
                               <h4 className="font-grotesk text-lg uppercase tracking-wide text-cream truncate">
@@ -432,7 +692,6 @@ function MyNFTsPage() {
                           </div>
                         </div>
 
-                        {/* Offer Metrics */}
                         <div className="p-3.5 rounded-2xl bg-white/5 border border-white/5 space-y-2 text-xs font-mono">
                           <div className="flex justify-between items-center">
                             <span className="text-cream/60">Escrowed Offer:</span>
@@ -452,10 +711,9 @@ function MyNFTsPage() {
                           </div>
                         </div>
 
-                        {/* Cancel & Reclaim Escrow Button */}
                         <Button
                           variant="outline"
-                          disabled={isCancelling}
+                          disabled={isCancelling || isSubmitting}
                           onClick={() => handleCancelOutgoingOffer(offer)}
                           className="w-full border-rose-800 bg-rose-950/60 hover:bg-rose-950 text-rose-300 font-mono text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
                         >

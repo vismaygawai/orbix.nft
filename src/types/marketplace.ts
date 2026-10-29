@@ -8,6 +8,7 @@ export interface NFT {
   price: number; // in octas
   for_sale: boolean;
   rarity: number; // 1: Common, 2: Uncommon, 3: Rare, 4: Epic
+  in_auction?: boolean;
 }
 
 export interface ListedNFT {

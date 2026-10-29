@@ -18,11 +18,15 @@ export function Footer() {
 
   const explorerUrl = `https://explorer.aptoslabs.com/account/${MARKETPLACE_CONTRACT_ADDRESS}?network=${APTOS_NETWORK}`;
 
-  const handleCopyContract = () => {
-    navigator.clipboard.writeText(MARKETPLACE_CONTRACT_ADDRESS);
-    setCopied(true);
-    toast.success("Contract address copied to clipboard");
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyContract = async () => {
+    try {
+      await navigator.clipboard.writeText(MARKETPLACE_CONTRACT_ADDRESS);
+      setCopied(true);
+      toast.success("Contract address copied to clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy contract address");
+    }
   };
 
   return (
@@ -37,7 +41,10 @@ export function Footer() {
               className="flex items-center gap-[0.06em] font-grotesk text-4xl sm:text-6xl md:text-7xl lg:text-8xl uppercase tracking-wider text-cream hover:opacity-85 transition-opacity"
             >
               <span>Orbix</span>
-              <span className="font-condiment text-neon text-[1.15em] normal-case -rotate-2 relative top-[0.2em]">
+              <span
+                aria-hidden="true"
+                className="font-condiment text-neon text-[1.15em] normal-case -rotate-2 relative top-[0.2em]"
+              >
                 .nft
               </span>
             </Link>
@@ -50,7 +57,7 @@ export function Footer() {
                 rel="noreferrer"
                 className="font-mono text-xs sm:text-sm uppercase tracking-wider text-cream/70 hover:text-neon transition-colors flex items-center gap-1.5"
               >
-                <span>APTOSCAN</span>
+                <span>EXPLORER</span>
                 <ExternalLink className="w-3.5 h-3.5 opacity-60" />
               </a>
 
@@ -99,7 +106,7 @@ export function Footer() {
                 <button
                   type="button"
                   onClick={handleCopyContract}
-                  className="hover:text-neon transition-colors p-1 rounded"
+                  className="hover:text-neon transition-colors p-1 rounded cursor-pointer"
                   title="Copy contract address"
                 >
                   {copied ? (
@@ -129,25 +136,51 @@ export function Footer() {
               Last updated: October 2026 • Decentralized Protocol
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 text-xs font-mono text-cream/80 leading-relaxed py-2 max-h-[60vh] overflow-y-auto">
-            <p>
-              Orbix.nft operates on the Aptos distributed blockchain network via verified Move smart
-              contracts.
-            </p>
-            <p>
-              <strong className="text-cream">No Data Harvesting:</strong> We do not track, sell, or
-              collect personal identity information, emails, or biometric cookies.
-            </p>
-            <p>
-              <strong className="text-cream">Public Blockchain Ledger:</strong> All NFT minting,
-              auctions, bids, and royalty parameters are publicly verifiable records permanently
-              anchored on the Aptos network.
-            </p>
-            <p>
-              <strong className="text-cream">Self-Custodial:</strong> You interact directly with
-              Aptos RPC endpoints through your own wallet (Petra, Pontem, Martian, etc.). You remain
-              the sole custodian of your private keys.
-            </p>
+
+          <div className="space-y-4 text-xs font-mono text-cream/80 leading-relaxed py-2 max-h-[60vh] overflow-y-auto pr-1">
+            <section className="space-y-1.5">
+              <h4 className="font-grotesk uppercase text-sm text-cream font-bold">
+                1. Data Minimization & Decentralization
+              </h4>
+              <p>
+                Orbix is a decentralized non-custodial NFT marketplace executing on the Aptos
+                blockchain via Move smart contracts. We do not collect, store, or sell personal
+                identity records, IP logs, cookies, or financial credentials.
+              </p>
+            </section>
+
+            <section className="space-y-1.5">
+              <h4 className="font-grotesk uppercase text-sm text-cream font-bold">
+                2. On-Chain Transparency
+              </h4>
+              <p>
+                All marketplace transactions—including minting, listing, auctions, bids, and
+                offers—are recorded publicly on the Aptos distributed ledger. Your public wallet
+                address and transaction history are immutable and accessible to anyone via public
+                Aptos node RPCs and block explorers.
+              </p>
+            </section>
+
+            <section className="space-y-1.5">
+              <h4 className="font-grotesk uppercase text-sm text-cream font-bold">
+                3. Third-Party Wallets & RPC Providers
+              </h4>
+              <p>
+                When connecting your Petra Wallet, Google Keyless account (Aptos Connect), Pontem,
+                or Martian, you interact directly with those providers. Their respective privacy
+                policies govern their services.
+              </p>
+            </section>
+
+            <section className="space-y-1.5">
+              <h4 className="font-grotesk uppercase text-sm text-cream font-bold">
+                4. Decentralized Media Storage
+              </h4>
+              <p>
+                Metadata and digital assets are pinned to IPFS and decentralized storage networks.
+                Once an artifact is minted, its cryptographic hash is permanent.
+              </p>
+            </section>
           </div>
         </DialogContent>
       </Dialog>
@@ -160,28 +193,54 @@ export function Footer() {
               Terms of Service
             </DialogTitle>
             <DialogDescription className="font-mono text-xs text-cream/60">
-              Aptos Smart Contract Terms & Protocol Usage
+              Last updated: October 2026 • Aptos Move Protocol
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 text-xs font-mono text-cream/80 leading-relaxed py-2 max-h-[60vh] overflow-y-auto">
-            <p>
-              By accessing Orbix.nft, you agree to interact with the immutable Move smart contract
-              deployed on Aptos.
-            </p>
-            <p>
-              <strong className="text-cream">Finality of Transactions:</strong> Blockchain state
-              changes, including NFT bids, auctions, and direct transfers, are non-reversible once
-              confirmed on the Aptos ledger.
-            </p>
-            <p>
-              <strong className="text-cream">Creator Royalties:</strong> Secondary sales honor
-              creator royalty shares up to the 30% cap specified in the on-chain registry.
-            </p>
-            <p>
-              <strong className="text-cream">Risk Disclaimer:</strong> Digital collectibles and
-              crypto assets are subject to market volatility. You are solely responsible for
-              transaction gas fees and verifying digital artifact legitimacy.
-            </p>
+
+          <div className="space-y-4 text-xs font-mono text-cream/80 leading-relaxed py-2 max-h-[60vh] overflow-y-auto pr-1">
+            <section className="space-y-1.5">
+              <h4 className="font-grotesk uppercase text-sm text-cream font-bold">
+                1. Protocol Autonomy & Smart Contracts
+              </h4>
+              <p>
+                Orbix operates as a direct interface to autonomous Move smart contracts deployed on
+                Aptos. Transactions executed through the protocol are irrevocable and final once
+                confirmed by the Aptos consensus validators.
+              </p>
+            </section>
+
+            <section className="space-y-1.5">
+              <h4 className="font-grotesk uppercase text-sm text-cream font-bold">
+                2. Non-Custodial Marketplace Escrow
+              </h4>
+              <p>
+                The marketplace never takes custody of your digital artifacts or APT coins. During
+                live auctions and pending offers, tokens and NFTs are securely escrowed directly
+                inside the on-chain smart contract, refundable at any time in accordance with the
+                Move contract logic.
+              </p>
+            </section>
+
+            <section className="space-y-1.5">
+              <h4 className="font-grotesk uppercase text-sm text-cream font-bold">
+                3. Creator Royalties & Fees
+              </h4>
+              <p>
+                Secondary sales enforce a 2% marketplace protocol fee. Creator royalties (up to 30%)
+                are configured on-chain and disbursed atomically on every settled transaction.
+              </p>
+            </section>
+
+            <section className="space-y-1.5">
+              <h4 className="font-grotesk uppercase text-sm text-cream font-bold">
+                4. User Responsibility
+              </h4>
+              <p>
+                You are solely responsible for safeguarding your private keys and verifying
+                transaction payloads before signing in your wallet. Orbix cannot reverse blockchain
+                transactions or recover funds sent to erroneous addresses.
+              </p>
+            </section>
           </div>
         </DialogContent>
       </Dialog>

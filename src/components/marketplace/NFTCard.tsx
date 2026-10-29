@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -8,10 +8,11 @@ import {
   truncateAddress,
   getRarityInfo,
   createEntryPayload,
-  sanitizeMediaUri,
-  confirmTransaction,
+  resolveMediaUrl,
+  isVideoUri,
   isSameAddress,
 } from "@/lib/aptosClient";
+import { useMarketplaceTx } from "@/hooks/useMarketplaceTx";
 import { NFT } from "@/types/marketplace";
 import { MakeOfferModal } from "./MakeOfferModal";
 import { OffersModal } from "./OffersModal";
@@ -25,14 +26,67 @@ interface Props {
   onRefresh?: (() => void) | undefined;
 }
 
+function LazyCardMedia({ src, alt, isVideo }: { src: string; alt: string; isVideo: boolean }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) {
+          setIsVisible(entry.isIntersecting);
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} className="absolute inset-0 w-full h-full">
+      {isVideo ? (
+        isVisible ? (
+          <video
+            src={src}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-navy-900/60 animate-pulse" />
+        )
+      ) : (
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src =
+              "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80";
+          }}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+      )}
+    </div>
+  );
+}
+
 export function NFTCard({ nft, onRefresh }: Props) {
-  const { account, connected, signAndSubmitTransaction } = useWallet();
+  const { account, connected } = useWallet();
+  const { executeTx, isSubmitting: buying } = useMarketplaceTx();
+
   const [offerOpen, setOfferOpen] = useState(false);
   const [offersListOpen, setOffersListOpen] = useState(false);
   const [auctionOpen, setAuctionOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
-  const [buying, setBuying] = useState(false);
 
   const walletAddress = account?.address ? String(account.address) : "";
   const isOwner = Boolean(walletAddress && nft.owner && isSameAddress(walletAddress, nft.owner));
@@ -40,43 +94,30 @@ export function NFTCard({ nft, onRefresh }: Props) {
   const priceApt = octasToApt(nft.price);
 
   const handleBuyNow = async () => {
-    if (!connected || !account) {
-      toast.error("Please connect your wallet first");
-      return;
-    }
-
     if (isOwner) {
-      toast.error("You already own this NFT");
+      toast.error("You already own this artifact.");
       return;
     }
 
-    setBuying(true);
-    const toastId = toast.loading(`Purchasing ${nft.name} for ${priceApt} APT...`);
+    const payload = createEntryPayload("purchase_nft", [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      nft.id.toString(),
+      nft.price.toString(),
+    ]);
 
-    try {
-      const payload = createEntryPayload("purchase_nft", [
-        MARKETPLACE_CONTRACT_ADDRESS,
-        nft.id.toString(),
-        nft.price.toString(),
-      ]);
-
-      const response: any = await signAndSubmitTransaction(payload);
-      toast.loading("Confirming purchase on Aptos...", { id: toastId });
-      await confirmTransaction(response);
-
-      toast.success(`Congratulations! You now own ${nft.name}.`, { id: toastId });
-      onRefresh?.();
-    } catch (err: any) {
-      console.error("Purchase error:", err);
-      toast.error(err?.message || "Failed to complete purchase", { id: toastId });
-    } finally {
-      setBuying(false);
-    }
+    await executeTx(payload, {
+      title: `Purchasing ${nft.name || "Artifact"}`,
+      description: `Paying ${priceApt} APT for artifact #${nft.id}...`,
+      successTitle: "Purchase Successful!",
+      successDescription: `Congratulations! You now own ${nft.name || `Artifact #${nft.id}`}.`,
+      onSuccess: () => {
+        onRefresh?.();
+      },
+    });
   };
 
-  const safeUri = sanitizeMediaUri(nft.uri) || "/videos/nft1.mp4";
-  const isVideo =
-    safeUri.endsWith(".mp4") || safeUri.endsWith(".webm") || safeUri.includes("cloudfront.net");
+  const safeUri = resolveMediaUrl(nft.uri) || "/videos/nft1.mp4";
+  const isVideo = isVideoUri(safeUri);
 
   return (
     <>
@@ -84,37 +125,21 @@ export function NFTCard({ nft, onRefresh }: Props) {
         <div>
           {/* Media Container */}
           <div className="relative pb-[100%] rounded-2xl overflow-hidden bg-white/5 mb-4">
-            {isVideo ? (
-              <video
-                src={safeUri}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            ) : (
-              <img
-                src={safeUri}
-                alt={nft.name}
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src =
-                    "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80";
-                }}
-                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-            )}
+            <LazyCardMedia src={safeUri} alt={nft.name} isVideo={isVideo} />
 
             {/* Rarity & Status Badges */}
-            <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+            <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
               <span
                 className={`px-3 py-1 rounded-full text-[11px] font-mono border backdrop-blur-md ${rarityInfo.badgeClass}`}
               >
                 {rarityInfo.label}
               </span>
 
-              {nft.for_sale ? (
+              {nft.in_auction ? (
+                <span className="px-3 py-1 rounded-full text-[11px] font-mono bg-amber-950/80 text-amber-300 border border-amber-700/60 backdrop-blur-md">
+                  In Auction
+                </span>
+              ) : nft.for_sale ? (
                 <span className="px-3 py-1 rounded-full text-[11px] font-mono bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 backdrop-blur-md">
                   For Sale
                 </span>
@@ -155,7 +180,7 @@ export function NFTCard({ nft, onRefresh }: Props) {
 
         {/* Action Buttons */}
         <div className="space-y-2 pt-2 border-t border-white/5">
-          {nft.for_sale && !isOwner && (
+          {nft.for_sale && !isOwner && !nft.in_auction && (
             <Button
               onClick={handleBuyNow}
               disabled={buying || !connected}
@@ -185,8 +210,9 @@ export function NFTCard({ nft, onRefresh }: Props) {
               <Button
                 variant="outline"
                 size="sm"
+                disabled={Boolean(nft.in_auction)}
                 onClick={() => setListOpen(true)}
-                className="liquid-glass text-cream border-white/10 hover:bg-white/10 font-mono text-xs flex items-center justify-center gap-1 rounded-xl"
+                className="liquid-glass text-cream border-white/10 hover:bg-white/10 font-mono text-xs flex items-center justify-center gap-1 rounded-xl disabled:opacity-50"
               >
                 <ShoppingBag className="w-3 h-3 text-neon" />
                 <span>{nft.for_sale ? "Manage Sale" : "List for Sale"}</span>
@@ -197,11 +223,12 @@ export function NFTCard({ nft, onRefresh }: Props) {
               <Button
                 variant="outline"
                 size="sm"
+                disabled={Boolean(nft.in_auction)}
                 onClick={() => setAuctionOpen(true)}
-                className="liquid-glass text-cream border-white/10 hover:bg-white/10 font-mono text-xs flex items-center justify-center gap-1 rounded-xl"
+                className="liquid-glass text-cream border-white/10 hover:bg-white/10 font-mono text-xs flex items-center justify-center gap-1 rounded-xl disabled:opacity-50"
               >
                 <Gavel className="w-3 h-3 text-neon" />
-                <span>Auction</span>
+                <span>{nft.in_auction ? "In Auction" : "Auction"}</span>
               </Button>
             ) : (
               <Button
@@ -230,8 +257,9 @@ export function NFTCard({ nft, onRefresh }: Props) {
               <Button
                 variant="ghost"
                 size="sm"
+                disabled={Boolean(nft.in_auction)}
                 onClick={() => setTransferOpen(true)}
-                className="text-cream/70 hover:text-cream hover:bg-white/5 font-mono text-[11px] h-7 flex items-center justify-center gap-1 rounded-lg"
+                className="text-cream/70 hover:text-cream hover:bg-white/5 font-mono text-[11px] h-7 flex items-center justify-center gap-1 rounded-lg disabled:opacity-50"
               >
                 <Send className="w-3 h-3 text-neon" />
                 <span>Transfer</span>

@@ -69,25 +69,53 @@ export function WalletButton() {
     setIsClient(true);
   }, []);
 
+  // Filter out internal development test wallets
+  const activeWallets = (wallets || []).filter(
+    (w) => !w.name.includes("Dev T") && w.name !== "T wallet",
+  );
+
+  const googleWallet =
+    activeWallets.find((w) => w.name.toLowerCase().includes("google")) ||
+    activeWallets.find((w) => w.name.toLowerCase().includes("aptos connect"));
+
+  const extensionWallets = activeWallets.filter(
+    (w) =>
+      !w.name.toLowerCase().includes("google") &&
+      !w.name.toLowerCase().includes("apple") &&
+      !w.name.toLowerCase().includes("aptos connect"),
+  );
+
   useEffect(() => {
     if (!connected || !walletAddress) {
       setBalance(null);
       return;
     }
+    let cancelled = false;
     const refreshBalance = () => {
-      fetchAptosBalance(walletAddress).then(setBalance);
+      fetchAptosBalance(walletAddress).then((bal) => {
+        if (!cancelled) {
+          setBalance(bal);
+        }
+      });
     };
     refreshBalance();
     window.addEventListener("orbix:nft-updated", refreshBalance);
-    return () => window.removeEventListener("orbix:nft-updated", refreshBalance);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("orbix:nft-updated", refreshBalance);
+    };
   }, [connected, walletAddress]);
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (!walletAddress) return;
-    navigator.clipboard.writeText(walletAddress);
-    setCopied(true);
-    toast.success("Address copied to clipboard");
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(walletAddress);
+      setCopied(true);
+      toast.success("Address copied to clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy address");
+    }
   };
 
   const handleDisconnect = async () => {
@@ -161,22 +189,6 @@ export function WalletButton() {
     );
   }
 
-  // Filter out internal development test wallets
-  const activeWallets = (wallets || []).filter(
-    (w) => !w.name.includes("Dev T") && w.name !== "T wallet",
-  );
-
-  const googleWallet =
-    activeWallets.find((w) => w.name.toLowerCase().includes("google")) ||
-    activeWallets.find((w) => w.name.toLowerCase().includes("aptos connect"));
-
-  const extensionWallets = activeWallets.filter(
-    (w) =>
-      !w.name.toLowerCase().includes("google") &&
-      !w.name.toLowerCase().includes("apple") &&
-      !w.name.toLowerCase().includes("aptos connect"),
-  );
-
   const isNetworkMismatch =
     connected &&
     Boolean(network?.name) &&
@@ -227,6 +239,7 @@ export function WalletButton() {
             <div className="flex justify-between items-center text-cream/60 mb-1">
               <span>Account:</span>
               <button
+                type="button"
                 onClick={handleCopy}
                 className="hover:text-neon transition-colors flex items-center gap-1 text-[11px] cursor-pointer"
               >
@@ -257,15 +270,17 @@ export function WalletButton() {
 
           <DropdownMenuSeparator className="bg-white/10" />
 
-          <a
-            href={`https://explorer.aptoslabs.com/account/${walletAddress}?network=${APTOS_NETWORK}`}
-            target="_blank"
-            rel="noreferrer"
-            className="w-full flex items-center justify-between text-xs font-mono p-2 rounded-lg hover:bg-white/10 text-cream/80 hover:text-cream transition-colors"
-          >
-            <span>View on Explorer</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+          <DropdownMenuItem asChild className="p-0 cursor-pointer">
+            <a
+              href={`https://explorer.aptoslabs.com/account/${walletAddress}?network=${APTOS_NETWORK}`}
+              target="_blank"
+              rel="noreferrer"
+              className="w-full flex items-center justify-between text-xs font-mono p-2 rounded-lg hover:bg-white/10 text-cream/80 hover:text-cream transition-colors"
+            >
+              <span>View on Explorer</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </DropdownMenuItem>
 
           <DropdownMenuItem
             onClick={handleDisconnect}

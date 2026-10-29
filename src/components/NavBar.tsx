@@ -30,7 +30,10 @@ export function NavBar() {
             className="flex items-center gap-1 font-grotesk text-lg sm:text-xl uppercase tracking-wider text-cream hover:opacity-80 transition-opacity shrink-0"
           >
             <span>Orbix</span>
-            <span className="font-condiment text-neon text-2xl normal-case -rotate-2 relative top-1">
+            <span
+              aria-hidden="true"
+              className="font-condiment text-neon text-2xl normal-case -rotate-2 relative top-1"
+            >
               .nft
             </span>
           </Link>
@@ -80,6 +83,7 @@ export function NavBar() {
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="text-cream hover:bg-white/10 w-9 h-9 rounded-xl border border-white/10 cursor-pointer flex items-center justify-center shrink-0"
               aria-label="Toggle navigation menu"
+              aria-expanded={mobileMenuOpen}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
@@ -88,41 +92,40 @@ export function NavBar() {
 
         {/* Mobile & Tablet Full-width dropdown (< lg) */}
         {mobileMenuOpen && (
-          <div className="lg:hidden px-4 py-5 space-y-4 bg-space/95 border-b border-white/10 backdrop-blur-2xl shadow-2xl animate-in slide-in-from-top-2 duration-200">
-            <ul className="space-y-1.5">
+          <div className="lg:hidden w-full bg-space/95 border-b border-white/10 px-4 sm:px-6 py-4 backdrop-blur-xl animate-in slide-in-from-top-2 duration-200">
+            <nav className="flex flex-col gap-3">
               {navLinks.map((link) => {
                 const isActive = currentPath === link.to;
                 return (
-                  <li key={link.to}>
-                    <Link
-                      to={link.to}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={`block font-grotesk uppercase text-sm py-2.5 px-4 rounded-xl transition-all ${
-                        isActive
-                          ? "bg-white/10 text-neon font-bold border border-neon/30"
-                          : "text-cream/80 hover:bg-white/5 hover:text-cream"
-                      }`}
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`font-grotesk text-sm uppercase tracking-wider py-2 px-3 rounded-lg transition-colors ${
+                      isActive
+                        ? "bg-white/10 text-neon font-bold"
+                        : "text-cream/80 hover:bg-white/5 hover:text-neon"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
                 );
               })}
-            </ul>
 
-            <div className="pt-2 border-t border-white/10">
-              <Button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setMintOpen(true);
-                }}
-                variant="outline"
-                className="w-full orb-button text-cream border-white/20 flex items-center justify-center gap-2 uppercase tracking-wider font-mono text-xs font-bold py-3 rounded-xl cursor-pointer"
-              >
-                <PlusCircle className="w-4 h-4 text-neon" />
-                <span>MINT NEW OBJECT</span>
-              </Button>
-            </div>
+              <div className="pt-2 border-t border-white/10 flex flex-col gap-2">
+                <Button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setMintOpen(true);
+                  }}
+                  variant="outline"
+                  className="w-full liquid-glass text-cream border-white/20 hover:bg-white/10 font-mono text-xs font-bold py-2.5 h-auto flex items-center justify-center gap-2 rounded-xl uppercase tracking-wider cursor-pointer"
+                >
+                  <PlusCircle className="w-4 h-4 text-neon" />
+                  <span>MINT NEW ARTIFACT</span>
+                </Button>
+              </div>
+            </nav>
           </div>
         )}
       </header>

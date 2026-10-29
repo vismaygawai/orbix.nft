@@ -12,12 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import {
-  MARKETPLACE_CONTRACT_ADDRESS,
-  aptToOctas,
-  createEntryPayload,
-  confirmTransaction,
-} from "@/lib/aptosClient";
+import { MARKETPLACE_CONTRACT_ADDRESS, aptToOctas, createEntryPayload } from "@/lib/aptosClient";
+import { useMarketplaceTx } from "@/hooks/useMarketplaceTx";
 import { Gavel, Loader2 } from "lucide-react";
 
 interface Props {
@@ -28,10 +24,10 @@ interface Props {
 }
 
 export function CreateAuctionModal({ open, onOpenChange, nftId, onSuccess }: Props) {
-  const { connected, signAndSubmitTransaction } = useWallet();
+  const { connected } = useWallet();
+  const { executeTx, isSubmitting: loading } = useMarketplaceTx();
   const [startPrice, setStartPrice] = useState("");
   const [durationHours, setDurationHours] = useState("24");
-  const [loading, setLoading] = useState(false);
 
   const handleCreateAuction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,10 +37,11 @@ export function CreateAuctionModal({ open, onOpenChange, nftId, onSuccess }: Pro
     }
 
     const priceNum = parseFloat(startPrice);
+    const octas = aptToOctas(startPrice);
     const hoursNum = parseFloat(durationHours);
 
-    if (isNaN(priceNum) || priceNum <= 0) {
-      toast.error("Please enter a valid starting price in APT");
+    if (isNaN(priceNum) || priceNum <= 0 || octas <= 0) {
+      toast.error("Please enter a valid starting price in APT (minimum 0.00000001 APT)");
       return;
     }
 
@@ -53,35 +50,28 @@ export function CreateAuctionModal({ open, onOpenChange, nftId, onSuccess }: Pro
       return;
     }
 
-    setLoading(true);
-    const toastId = toast.loading("Creating on-chain auction...");
+    const durationSeconds = Math.floor(hoursNum * 3600);
 
-    try {
-      const startPriceOctas = aptToOctas(priceNum).toString();
-      const durationSeconds = Math.floor(hoursNum * 3600).toString();
+    const payload = createEntryPayload("create_auction", [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      nftId.toString(),
+      octas.toString(),
+      durationSeconds.toString(),
+    ]);
 
-      const payload = createEntryPayload("create_auction", [
-        MARKETPLACE_CONTRACT_ADDRESS,
-        nftId.toString(),
-        startPriceOctas,
-        durationSeconds,
-      ]);
+    const txHash = await executeTx(payload, {
+      title: `Starting Auction for #${nftId}`,
+      description: `Reserve: ${startPrice} APT | Duration: ${hoursNum} hr(s)...`,
+      successTitle: "Auction Created!",
+      successDescription: `Auction for artifact #${nftId} is now live on Aptos.`,
+      onSuccess: () => {
+        onOpenChange(false);
+        onSuccess?.();
+      },
+    });
 
-      const response: any = await signAndSubmitTransaction(payload);
-      toast.loading("Waiting for confirmation...", { id: toastId });
-      await confirmTransaction(response);
-
-      toast.success("Auction created successfully!", { id: toastId });
-      onOpenChange(false);
-      onSuccess?.();
-    } catch (err: any) {
-      console.error("Error creating auction:", err);
-      let msg = err?.message || "Failed to create auction";
-      if (msg.includes("1000")) msg = "You are not the owner of this NFT";
-      if (msg.includes("1001")) msg = "Auction duration must be at least 1 hour";
-      toast.error(msg, { id: toastId });
-    } finally {
-      setLoading(false);
+    if (txHash) {
+      setStartPrice("");
     }
   };
 
@@ -106,7 +96,7 @@ export function CreateAuctionModal({ open, onOpenChange, nftId, onSuccess }: Pro
               id="start-price"
               type="number"
               step="any"
-              min="0.0001"
+              min="0.00000001"
               placeholder="e.g. 1.5"
               value={startPrice}
               onChange={(e) => setStartPrice(e.target.value)}
@@ -124,6 +114,7 @@ export function CreateAuctionModal({ open, onOpenChange, nftId, onSuccess }: Pro
               type="number"
               step="1"
               min="1"
+              max="720"
               placeholder="e.g. 24"
               value={durationHours}
               onChange={(e) => setDurationHours(e.target.value)}

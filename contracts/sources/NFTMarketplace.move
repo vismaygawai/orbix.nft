@@ -14,30 +14,35 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
         const MARKETPLACE_FEE_PERCENT: u64 = 2; // 2% fee
         const MIN_AUCTION_DURATION: u64 = 3600; // 1 hour in seconds
 
-        // Error codes
+        // Standardized Error Codes
         const ENOT_OWNER: u64 = 100;
         const EALREADY_LISTED: u64 = 101;
         const EINVALID_PRICE: u64 = 102;
         const EINVALID_RARITY: u64 = 103;
+        const EINVALID_NAME: u64 = 104;
+        const EINVALID_DESCRIPTION: u64 = 105;
+        const EINVALID_URI: u64 = 106;
+        const EINVALID_ADDRESS: u64 = 107;
+        const ESAME_OWNER: u64 = 108;
         const ENOT_FOR_SALE: u64 = 400;
         const EINSUFFICIENT_PAYMENT: u64 = 401;
         const ECANNOT_BUY_OWN_NFT: u64 = 402;
         const ENFT_IN_AUCTION: u64 = 403;
-        const ESAME_OWNER: u64 = 301;
         const ENFT_NOT_FOUND: u64 = 1000;
         const EINVALID_DURATION: u64 = 1001;
         const EMAX_ROYALTY_EXCEEDED: u64 = 1005;
         const EINVALID_EXPIRATION: u64 = 1006;
         const EOFFER_EXPIRED: u64 = 1008;
+        const EOFFER_NOT_FOUND: u64 = 1009;
         const EOFFER_NOT_PENDING: u64 = 1010;
         const EALREADY_INITIALIZED: u64 = 1011;
         const EAUCTION_ALREADY_EXISTS: u64 = 1012;
         const EAUCTION_NOT_ENDED: u64 = 1013;
         const EAUCTION_HAS_BIDS: u64 = 1014;
-        const EALREADY_HIGHEST_BIDDER: u64 = 0x3ed;
-        const EBID_TOO_LOW: u64 = 0x3ee;
-        const EAUCTION_NOT_ACTIVE: u64 = 0x3ef;
-        const EAUCTION_EXPIRED: u64 = 0x3f0;
+        const EALREADY_HIGHEST_BIDDER: u64 = 1015;
+        const EBID_TOO_LOW: u64 = 1016;
+        const EAUCTION_NOT_ACTIVE: u64 = 1017;
+        const EAUCTION_EXPIRED: u64 = 1018;
 
         struct NFT has store, key {
             id: u64,
@@ -170,7 +175,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             exists<Marketplace>(marketplace_addr)
         }
 
-        // Fixed: Uses MODULE_ADDRESS if initialized there so any user can mint into the global marketplace
+        /// Registers a new ocean artifact with bounded metadata and rarity tier (1-4).
         public entry fun mint_nft(
             account: &signer,
             name: vector<u8>,
@@ -179,6 +184,9 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             rarity: u8
         ) acquires Marketplace {
             assert!(rarity >= 1 && rarity <= 4, EINVALID_RARITY);
+            assert!(vector::length(&name) > 0 && vector::length(&name) <= 128, EINVALID_NAME);
+            assert!(vector::length(&description) <= 1024, EINVALID_DESCRIPTION);
+            assert!(vector::length(&uri) > 0 && vector::length(&uri) <= 512, EINVALID_URI);
             let sender = signer::address_of(account);
             let target_addr = if (exists<Marketplace>(MODULE_ADDRESS)) {
                 MODULE_ADDRESS
@@ -304,6 +312,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             };
         }
 
+        /// Updates the asking price for an active direct listing.
         public entry fun set_price(
             account: &signer,
             marketplace_addr: address,
@@ -314,8 +323,9 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             assert!(nft_id < vector::length(&marketplace.nfts), ENFT_NOT_FOUND);
             let nft_ref = vector::borrow_mut(&mut marketplace.nfts, nft_id);
 
-            assert!(nft_ref.owner == signer::address_of(account), 200);
-            assert!(price > 0, 201);
+            assert!(nft_ref.owner == signer::address_of(account), ENOT_OWNER);
+            assert!(nft_ref.for_sale, ENOT_FOR_SALE);
+            assert!(price > 0, EINVALID_PRICE);
 
             nft_ref.price = price;
         }
@@ -342,7 +352,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             let marketplace_fee = (((price as u128) * (MARKETPLACE_FEE_PERCENT as u128)) / 100 as u64);
             let seller_revenue = price - marketplace_fee;
 
-            // Fixed: Check creator_royalties for nft_ref.creator, not current owner
+            /// Creator royalty disbursement on secondary sales
             if (table::contains(&marketplace.creator_royalties, creator_addr)) {
                 let creator_royalty = *table::borrow(&marketplace.creator_royalties, creator_addr);
                 let royalty_amount = (((price as u128) * (creator_royalty as u128)) / 100 as u64);
@@ -380,18 +390,20 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             nft.price
         }
 
+        /// Transfers an unlisted NFT directly to a recipient Aptos address.
         public entry fun transfer_ownership(
             account: &signer,
             marketplace_addr: address,
             nft_id: u64,
             new_owner: address
         ) acquires Marketplace {
+            assert!(new_owner != @0x0, EINVALID_ADDRESS);
             let marketplace = borrow_global_mut<Marketplace>(marketplace_addr);
             assert!(nft_id < vector::length(&marketplace.nfts), ENFT_NOT_FOUND);
             assert!(!has_active_auction(&marketplace.auctions, nft_id), ENFT_IN_AUCTION);
 
             let nft_ref = vector::borrow_mut(&mut marketplace.nfts, nft_id);
-            assert!(nft_ref.owner == signer::address_of(account), 300);
+            assert!(nft_ref.owner == signer::address_of(account), ENOT_OWNER);
             assert!(nft_ref.owner != new_owner, ESAME_OWNER);
 
             let was_for_sale = nft_ref.for_sale;
@@ -412,6 +424,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             nft.owner
         }
 
+        /// Queries all NFT IDs registered to a specific Aptos account address with true match pagination.
         #[view]
         public fun get_all_nfts_for_owner(
             marketplace_addr: address,
@@ -422,23 +435,24 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             let marketplace = borrow_global<Marketplace>(marketplace_addr);
             let nft_ids = vector::empty<u64>();
             let nfts_len = vector::length(&marketplace.nfts);
-            if (offset >= nfts_len) {
-                return nft_ids
-            };
+            let i = 0;
+            let matched = 0;
 
-            let end = min(offset + limit, nfts_len);
-            let mut_i = offset;
-            while (mut_i < end) {
-                let nft = vector::borrow(&marketplace.nfts, mut_i);
+            while (i < nfts_len) {
+                let nft = vector::borrow(&marketplace.nfts, i);
                 if (nft.owner == owner_addr) {
-                    vector::push_back(&mut nft_ids, nft.id);
+                    if (matched >= offset && vector::length(&nft_ids) < limit) {
+                        vector::push_back(&mut nft_ids, nft.id);
+                    };
+                    matched = matched + 1;
                 };
-                mut_i = mut_i + 1;
+                i = i + 1;
             };
 
             nft_ids
         }
 
+        /// Returns all fixed-price marketplace listings with true match pagination.
         #[view]
         public fun get_all_nfts_for_sale(
             marketplace_addr: address,
@@ -448,22 +462,45 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             let marketplace = borrow_global<Marketplace>(marketplace_addr);
             let nfts_for_sale = vector::empty<ListedNFT>();
             let nfts_len = vector::length(&marketplace.nfts);
-            if (offset >= nfts_len) {
-                return nfts_for_sale
-            };
+            let i = 0;
+            let matched = 0;
 
-            let end = min(offset + limit, nfts_len);
-            let mut_i = offset;
-            while (mut_i < end) {
-                let nft = vector::borrow(&marketplace.nfts, mut_i);
+            while (i < nfts_len) {
+                let nft = vector::borrow(&marketplace.nfts, i);
                 if (nft.for_sale) {
-                    let listed_nft = ListedNFT { id: nft.id, price: nft.price, rarity: nft.rarity };
-                    vector::push_back(&mut nfts_for_sale, listed_nft);
+                    if (matched >= offset && vector::length(&nfts_for_sale) < limit) {
+                        let listed_nft = ListedNFT { id: nft.id, price: nft.price, rarity: nft.rarity };
+                        vector::push_back(&mut nfts_for_sale, listed_nft);
+                    };
+                    matched = matched + 1;
                 };
-                mut_i = mut_i + 1;
+                i = i + 1;
             };
 
             nfts_for_sale
+        }
+
+        /// Checks whether an NFT is locked in an active auction.
+        #[view]
+        public fun is_in_auction(marketplace_addr: address, nft_id: u64): bool acquires Marketplace {
+            let marketplace = borrow_global<Marketplace>(marketplace_addr);
+            has_active_auction(&marketplace.auctions, nft_id)
+        }
+
+        /// Returns the original creator address for an NFT.
+        #[view]
+        public fun get_nft_creator(marketplace_addr: address, nft_id: u64): address acquires Marketplace {
+            let marketplace = borrow_global<Marketplace>(marketplace_addr);
+            assert!(nft_id < vector::length(&marketplace.nfts), ENFT_NOT_FOUND);
+            let nft = vector::borrow(&marketplace.nfts, nft_id);
+            nft.creator
+        }
+
+        /// Returns total count of NFTs minted on the marketplace.
+        #[view]
+        public fun get_total_nfts(marketplace_addr: address): u64 acquires Marketplace {
+            let marketplace = borrow_global<Marketplace>(marketplace_addr);
+            vector::length(&marketplace.nfts)
         }
 
         public fun min(a: u64, b: u64): u64 {
@@ -528,7 +565,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             vector::push_back(&mut marketplace.auctions, auction);
         }
 
-        // Fixed: Escrows bid in `auction_escrow` and refunds previous bidder from escrow, NOT from new bidder!
+        /// Places bid, escrows funds in contract, and refunds prior highest bidder
         public entry fun place_bid(
             account: &signer,
             marketplace_addr: address,
@@ -588,7 +625,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             );
         }
 
-        // Added: Finalize an expired auction, transferring NFT and settling escrowed funds
+        /// Finalizes an expired auction, transferring NFT and settling escrowed funds
         public entry fun finalize_auction(
             _account: &signer,
             marketplace_addr: address,
@@ -662,7 +699,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             table::upsert(&mut marketplace.creator_royalties, signer::address_of(account), royalty_percentage);
         }
 
-        // Fixed: Escrows the buyer's offer amount so `accept_offer` actually pays the seller from the buyer's funds
+        /// Submits an escrowed buyer offer with expiration timestamp
         public entry fun make_offer(
             account: &signer,
             marketplace_addr: address,
@@ -710,7 +747,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             });
         }
 
-        // Fixed: Disburses the buyer's escrowed offer coins to the seller, creator, and marketplace!
+        /// Accepts a pending buyer offer and disburses escrowed payment
         public entry fun accept_offer(
             account: &signer,
             marketplace_addr: address,
@@ -723,10 +760,13 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
 
             let nft_ref = vector::borrow_mut(&mut marketplace.nfts, nft_id);
             let seller_addr = signer::address_of(account);
-            assert!(nft_ref.owner == seller_addr, 1007);
+            assert!(nft_ref.owner == seller_addr, ENOT_OWNER);
 
+            assert!(table::contains(&marketplace.offers, nft_id), EOFFER_NOT_FOUND);
             let offers = table::borrow_mut(&mut marketplace.offers, nft_id);
+            assert!(offer_index < vector::length(offers), EOFFER_NOT_FOUND);
             let offer = vector::borrow_mut(offers, offer_index);
+            assert!(offer.buyer != seller_addr, ECANNOT_BUY_OWN_NFT);
             assert!(offer.expiration > timestamp::now_seconds(), EOFFER_EXPIRED);
             assert!(offer.status == 0, EOFFER_NOT_PENDING);
 
@@ -771,7 +811,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             });
         }
 
-        // Added: Allows buyer to cancel their pending/expired offer and reclaim escrowed APT
+        /// Allows buyer to cancel their pending/expired offer and reclaim escrowed APT
         public entry fun cancel_offer(
             account: &signer,
             marketplace_addr: address,
@@ -800,7 +840,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             });
         }
 
-        // Added: Allows seller/NFT owner to explicitly reject a pending offer and refund escrowed APT to buyer
+        /// Allows seller/NFT owner to explicitly reject a pending offer and refund escrowed APT to buyer
         public entry fun reject_offer(
             account: &signer,
             marketplace_addr: address,
@@ -815,7 +855,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             assert!(nft_ref.owner == caller, ENOT_OWNER);
 
             let offers = table::borrow_mut(&mut marketplace.offers, nft_id);
-            assert!(offer_index < vector::length(offers), 1009);
+            assert!(offer_index < vector::length(offers), EOFFER_NOT_FOUND);
             let offer = vector::borrow_mut(offers, offer_index);
             assert!(offer.status == 0, EOFFER_NOT_PENDING);
 

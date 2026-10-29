@@ -10,9 +10,9 @@ import {
   aptosClient,
   MARKETPLACE_CONTRACT_ADDRESS,
   createEntryPayload,
-  confirmTransaction,
   APTOS_NETWORK,
 } from "@/lib/aptosClient";
+import { useMarketplaceTx } from "@/hooks/useMarketplaceTx";
 import { Percent, ShieldCheck, Loader2, HelpCircle } from "lucide-react";
 
 export const Route = createFileRoute("/royalties")({
@@ -29,11 +29,11 @@ export const Route = createFileRoute("/royalties")({
 });
 
 function RoyaltiesPage() {
-  const { account, connected, signAndSubmitTransaction } = useWallet();
+  const { account, connected } = useWallet();
+  const { executeTx, isSubmitting: loading } = useMarketplaceTx();
   const walletAddress = account?.address ? String(account.address) : "";
   const [royalty, setRoyalty] = useState("5");
   const [currentOnChainRoyalty, setCurrentOnChainRoyalty] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
   const [fetchingRate, setFetchingRate] = useState(false);
 
   useEffect(() => {
@@ -82,27 +82,20 @@ function RoyaltiesPage() {
       return;
     }
 
-    setLoading(true);
-    const toastId = toast.loading("Saving royalty rate on Aptos...");
+    const payload = createEntryPayload("set_creator_royalty", [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      val.toString(),
+    ]);
 
-    try {
-      const payload = createEntryPayload("set_creator_royalty", [
-        MARKETPLACE_CONTRACT_ADDRESS,
-        val.toString(),
-      ]);
-
-      const response: any = await signAndSubmitTransaction(payload);
-      toast.loading("Confirming on blockchain...", { id: toastId });
-      await confirmTransaction(response);
-
-      toast.success(`Creator royalty successfully set to ${val}%!`, { id: toastId });
-      setCurrentOnChainRoyalty(val);
-    } catch (err: any) {
-      console.error("Royalty setting error:", err);
-      toast.error(err?.message || "Failed to set creator royalty", { id: toastId });
-    } finally {
-      setLoading(false);
-    }
+    await executeTx(payload, {
+      title: "Setting Creator Royalty",
+      description: `Configuring ${val}% perpetual royalty rate on Aptos...`,
+      successTitle: "Royalty Updated!",
+      successDescription: `Creator royalty successfully registered at ${val}%.`,
+      onSuccess: () => {
+        setCurrentOnChainRoyalty(val);
+      },
+    });
   };
 
   return (
@@ -193,7 +186,7 @@ function RoyaltiesPage() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full orb-button text-cream font-mono text-xs py-3 rounded-xl flex items-center justify-center gap-2"
+                className="w-full orb-button text-cream font-mono text-xs py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
               >
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                 <span>{loading ? "Registering on Chain..." : "Update Royalty Rate"}</span>

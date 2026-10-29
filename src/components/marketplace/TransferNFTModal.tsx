@@ -15,10 +15,11 @@ import { toast } from "sonner";
 import {
   MARKETPLACE_CONTRACT_ADDRESS,
   createEntryPayload,
-  confirmTransaction,
   isSameAddress,
+  normalizeAddress,
 } from "@/lib/aptosClient";
-import { Send, Loader2 } from "lucide-react";
+import { useMarketplaceTx } from "@/hooks/useMarketplaceTx";
+import { Send, Loader2, AlertTriangle } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -28,10 +29,11 @@ interface Props {
 }
 
 export function TransferNFTModal({ open, onOpenChange, nftId, onSuccess }: Props) {
-  const { account, connected, signAndSubmitTransaction } = useWallet();
+  const { account, connected } = useWallet();
+  const { executeTx, isSubmitting: loading } = useMarketplaceTx();
   const walletAddress = account?.address ? String(account.address) : "";
   const [recipient, setRecipient] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
 
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,45 +48,54 @@ export function TransferNFTModal({ open, onOpenChange, nftId, onSuccess }: Props
       return;
     }
 
-    if (isSameAddress(cleanAddress, walletAddress)) {
-      toast.error("Cannot transfer an NFT to your own address");
+    const normalized = normalizeAddress(cleanAddress);
+    if (!normalized || normalized === "0x0") {
+      toast.error("Recipient address cannot be zero (0x0)");
       return;
     }
 
-    setLoading(true);
-    const toastId = toast.loading(`Transferring Object #${nftId}...`);
+    if (isSameAddress(cleanAddress, walletAddress)) {
+      toast.error("Cannot transfer an artifact to your own address");
+      return;
+    }
 
-    try {
-      const payload = createEntryPayload("transfer_ownership", [
-        MARKETPLACE_CONTRACT_ADDRESS,
-        nftId.toString(),
-        cleanAddress,
-      ]);
+    if (!confirmed) {
+      setConfirmed(true);
+      return;
+    }
 
-      const response: any = await signAndSubmitTransaction(payload);
-      toast.loading("Confirming transfer on Aptos...", { id: toastId });
-      await confirmTransaction(response);
+    const payload = createEntryPayload("transfer_ownership", [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      nftId.toString(),
+      cleanAddress,
+    ]);
 
-      toast.success(`Object #${nftId} transferred successfully!`, { id: toastId });
-      setRecipient("");
-      onOpenChange(false);
-      onSuccess?.();
-    } catch (err: any) {
-      console.error("Transfer error:", err);
-      let msg = err?.message || "Failed to transfer NFT";
-      if (msg.includes("403") || msg.includes("ENFT_IN_AUCTION")) {
-        msg = "Cannot transfer an NFT while it is in an active auction";
-      } else if (msg.includes("301") || msg.includes("ESAME_OWNER")) {
-        msg = "Recipient is already the owner";
-      }
-      toast.error(msg, { id: toastId });
-    } finally {
-      setLoading(false);
+    const txHash = await executeTx(payload, {
+      title: `Transferring Object #${nftId}`,
+      description: `Sending artifact to ${cleanAddress.slice(0, 10)}...`,
+      successTitle: "Ownership Transferred!",
+      successDescription: `Object #${nftId} was permanently transferred to recipient.`,
+      onSuccess: () => {
+        setRecipient("");
+        setConfirmed(false);
+        onOpenChange(false);
+        onSuccess?.();
+      },
+    });
+
+    if (txHash && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("orbix:nft-updated"));
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(val) => {
+        setConfirmed(false);
+        onOpenChange(val);
+      }}
+    >
       <DialogContent className="bg-space/95 border-white/10 text-cream backdrop-blur-xl sm:max-w-md rounded-3xl">
         <DialogHeader>
           <DialogTitle className="font-grotesk uppercase tracking-wide text-2xl text-cream flex items-center gap-2">
@@ -106,17 +117,31 @@ export function TransferNFTModal({ open, onOpenChange, nftId, onSuccess }: Props
               type="text"
               placeholder="0x..."
               value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
+              onChange={(e) => {
+                setRecipient(e.target.value);
+                setConfirmed(false);
+              }}
               className="bg-white/5 border-white/15 text-cream placeholder:text-cream/30 focus-visible:ring-neon font-mono text-xs"
               required
             />
+          </div>
+
+          <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-800/60 flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-[11px] font-mono text-amber-200/90 leading-relaxed">
+              Ownership transfers on Aptos are permanent and irreversible. Ensure the recipient
+              address is accurate.
+            </p>
           </div>
 
           <DialogFooter className="pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
             <Button
               type="button"
               variant="ghost"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                setConfirmed(false);
+                onOpenChange(false);
+              }}
               className="text-cream/70 hover:text-cream hover:bg-white/5 w-full sm:w-auto"
             >
               Cancel
@@ -124,10 +149,18 @@ export function TransferNFTModal({ open, onOpenChange, nftId, onSuccess }: Props
             <Button
               type="submit"
               disabled={loading || !connected}
-              className="orb-button text-cream font-mono text-xs px-6 py-2.5 rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto"
+              className={`font-mono text-xs px-6 py-2.5 rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto ${
+                confirmed ? "bg-rose-600 hover:bg-rose-500 text-white" : "orb-button text-cream"
+              }`}
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>{loading ? "Transferring..." : "Confirm Transfer"}</span>
+              <span>
+                {loading
+                  ? "Transferring..."
+                  : confirmed
+                    ? "Yes, Permanently Transfer"
+                    : "Review Transfer"}
+              </span>
             </Button>
           </DialogFooter>
         </form>

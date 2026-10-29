@@ -8,16 +8,16 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import {
   aptosClient,
   MARKETPLACE_CONTRACT_ADDRESS,
   octasToApt,
   truncateAddress,
   createEntryPayload,
-  confirmTransaction,
   isSameAddress,
+  getNowSeconds,
 } from "@/lib/aptosClient";
+import { useMarketplaceTx } from "@/hooks/useMarketplaceTx";
 import { Offer } from "@/types/marketplace";
 import { Layers, Loader2, CheckCircle, Clock, XCircle } from "lucide-react";
 
@@ -30,10 +30,11 @@ interface Props {
 }
 
 export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: Props) {
-  const { account, signAndSubmitTransaction } = useWallet();
+  const { account } = useWallet();
+  const { executeTx, isSubmitting } = useMarketplaceTx();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [actionIndex, setActionIndex] = useState<number | null>(null);
 
   const fetchOffers = useCallback(async () => {
     if (!open) return;
@@ -73,88 +74,70 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
   const walletAddress = account?.address ? String(account.address) : "";
 
   const handleAcceptOffer = async (offerIndex: number) => {
-    if (!account) return;
-    setActionLoading(offerIndex);
-    const toastId = toast.loading("Accepting offer on-chain...");
+    setActionIndex(offerIndex);
+    const payload = createEntryPayload("accept_offer", [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      nftId.toString(),
+      offerIndex.toString(),
+    ]);
 
-    try {
-      const payload = createEntryPayload("accept_offer", [
-        MARKETPLACE_CONTRACT_ADDRESS,
-        nftId.toString(),
-        offerIndex.toString(),
-      ]);
-
-      const response: any = await signAndSubmitTransaction(payload);
-      toast.loading("Confirming transfer...", { id: toastId });
-      await confirmTransaction(response);
-
-      toast.success("Offer accepted! NFT ownership transferred.", { id: toastId });
-      onOpenChange(false);
-      onSuccess?.();
-    } catch (err: any) {
-      console.error("Error accepting offer:", err);
-      toast.error(err?.message || "Failed to accept offer", { id: toastId });
-    } finally {
-      setActionLoading(null);
-    }
+    await executeTx(payload, {
+      title: `Accepting Offer on #${nftId}`,
+      description: "Transferring artifact and receiving escrowed funds...",
+      successTitle: "Offer Accepted!",
+      successDescription: `Offer accepted! Object #${nftId} ownership has been transferred.`,
+      onSuccess: () => {
+        onOpenChange(false);
+        onSuccess?.();
+      },
+    });
+    setActionIndex(null);
   };
 
   const handleRejectOffer = async (offerIndex: number) => {
-    if (!account) return;
-    setActionLoading(offerIndex);
-    const toastId = toast.loading("Rejecting offer & refunding escrowed APT to buyer...");
+    setActionIndex(offerIndex);
+    const payload = createEntryPayload("reject_offer", [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      nftId.toString(),
+      offerIndex.toString(),
+    ]);
 
-    try {
-      const payload = createEntryPayload("reject_offer", [
-        MARKETPLACE_CONTRACT_ADDRESS,
-        nftId.toString(),
-        offerIndex.toString(),
-      ]);
-
-      const response: any = await signAndSubmitTransaction(payload);
-      toast.loading("Confirming rejection on Aptos...", { id: toastId });
-      await confirmTransaction(response);
-
-      toast.success("Offer rejected and buyer's escrow refunded.", { id: toastId });
-      fetchOffers();
-      onSuccess?.();
-    } catch (err: any) {
-      console.error("Error rejecting offer:", err);
-      toast.error(err?.message || "Failed to reject offer", { id: toastId });
-    } finally {
-      setActionLoading(null);
-    }
+    await executeTx(payload, {
+      title: `Rejecting Offer on #${nftId}`,
+      description: "Releasing escrowed APT back to the buyer...",
+      successTitle: "Offer Rejected",
+      successDescription: "Offer was declined and buyer's escrow refunded.",
+      onSuccess: () => {
+        fetchOffers();
+        onSuccess?.();
+      },
+    });
+    setActionIndex(null);
   };
 
   const handleCancelOffer = async (offerIndex: number) => {
-    if (!account) return;
-    setActionLoading(offerIndex);
-    const toastId = toast.loading("Cancelling offer & refunding escrowed APT...");
+    setActionIndex(offerIndex);
+    const payload = createEntryPayload("cancel_offer", [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      nftId.toString(),
+      offerIndex.toString(),
+    ]);
 
-    try {
-      const payload = createEntryPayload("cancel_offer", [
-        MARKETPLACE_CONTRACT_ADDRESS,
-        nftId.toString(),
-        offerIndex.toString(),
-      ]);
-
-      const response: any = await signAndSubmitTransaction(payload);
-      toast.loading("Confirming refund on Aptos...", { id: toastId });
-      await confirmTransaction(response);
-
-      toast.success("Offer cancelled! Escrowed APT refunded to your wallet.", { id: toastId });
-      fetchOffers();
-      onSuccess?.();
-    } catch (err: any) {
-      console.error("Error cancelling offer:", err);
-      toast.error(err?.message || "Failed to cancel offer", { id: toastId });
-    } finally {
-      setActionLoading(null);
-    }
+    await executeTx(payload, {
+      title: `Cancelling Offer on #${nftId}`,
+      description: "Reclaiming your escrowed APT from contract...",
+      successTitle: "Offer Cancelled",
+      successDescription: "Your escrowed APT has been refunded to your wallet.",
+      onSuccess: () => {
+        fetchOffers();
+        onSuccess?.();
+      },
+    });
+    setActionIndex(null);
   };
 
   const getStatusBadge = (status: number, expiration: number) => {
-    const isExpired = Date.now() / 1000 > expiration;
+    const isExpired = getNowSeconds() > expiration;
     if (status === 1) {
       return (
         <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-800">
@@ -214,12 +197,13 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
             </div>
           ) : (
             offers.map((offer, index) => {
-              const isExpired = Date.now() / 1000 > offer.expiration;
+              const isExpired = getNowSeconds() > offer.expiration;
               const canAccept = isOwner && offer.status === 0 && !isExpired;
               const isOfferBuyer = Boolean(
                 walletAddress && offer.buyer && isSameAddress(walletAddress, offer.buyer),
               );
               const canCancel = isOfferBuyer && offer.status === 0;
+              const isItemBusy = isSubmitting && actionIndex === index;
 
               return (
                 <div
@@ -251,11 +235,11 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
                       <>
                         <Button
                           size="sm"
-                          disabled={actionLoading === index}
+                          disabled={isSubmitting}
                           onClick={() => handleAcceptOffer(index)}
                           className="orb-button text-cream font-mono text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5"
                         >
-                          {actionLoading === index ? (
+                          {isItemBusy ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : (
                             <CheckCircle className="w-3.5 h-3.5" />
@@ -266,11 +250,11 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
                         <Button
                           size="sm"
                           variant="outline"
-                          disabled={actionLoading === index}
+                          disabled={isSubmitting}
                           onClick={() => handleRejectOffer(index)}
                           className="border-rose-800 bg-rose-950/60 hover:bg-rose-950 text-rose-300 font-mono text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
                         >
-                          {actionLoading === index ? (
+                          {isItemBusy ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : (
                             <XCircle className="w-3.5 h-3.5" />
@@ -284,11 +268,11 @@ export function OffersModal({ open, onOpenChange, nftId, isOwner, onSuccess }: P
                       <Button
                         size="sm"
                         variant="outline"
-                        disabled={actionLoading === index}
+                        disabled={isSubmitting}
                         onClick={() => handleCancelOffer(index)}
                         className="border-rose-800 bg-rose-950/60 hover:bg-rose-950 text-rose-300 font-mono text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
                       >
-                        {actionLoading === index ? (
+                        {isItemBusy ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
                           <XCircle className="w-3.5 h-3.5" />

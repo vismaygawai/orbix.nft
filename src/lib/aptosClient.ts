@@ -101,7 +101,7 @@ export function sanitizeMediaUri(uri: string): string {
     return trimmed;
   }
   if (trimmed.startsWith("ipfs://")) {
-    return trimmed.replace("ipfs://", "https://ipfs.io/ipfs/");
+    return trimmed;
   }
   if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
     return trimmed;
@@ -266,4 +266,204 @@ export async function confirmTransaction(response: any): Promise<string> {
     window.dispatchEvent(new CustomEvent("orbix:nft-updated"));
   }
   return txHash;
+}
+
+let ledgerTimeDelta = 0;
+
+/**
+ * Synchronizes the client with the Aptos blockchain ledger time to avoid client clock drift.
+ */
+export async function syncLedgerTime(): Promise<number> {
+  try {
+    const ledgerInfo = await aptosClient.getLedgerInfo();
+    if (ledgerInfo && ledgerInfo.ledger_timestamp) {
+      const ledgerSecs = Math.floor(Number(ledgerInfo.ledger_timestamp) / 1_000_000);
+      const nowSecs = Math.floor(Date.now() / 1000);
+      ledgerTimeDelta = ledgerSecs - nowSecs;
+      return ledgerSecs;
+    }
+  } catch (err) {
+    console.warn("Failed to sync Aptos ledger timestamp:", err);
+  }
+  return Math.floor(Date.now() / 1000);
+}
+
+/**
+ * Returns the current time in seconds, synchronized with the Aptos ledger.
+ */
+export function getNowSeconds(): number {
+  return Math.floor(Date.now() / 1000) + ledgerTimeDelta;
+}
+
+// Centralized Move abort map for friendly user feedback
+export const MOVE_ERROR_MAP: Record<string, string> = {
+  ENOT_OWNER: "You do not own this ocean artifact.",
+  EALREADY_LISTED: "This artifact is already listed for sale.",
+  EINVALID_PRICE: "Price must be greater than zero.",
+  EINVALID_RARITY: "Rarity tier must be between 1 (Common) and 4 (Epic).",
+  EINVALID_NAME: "Artifact name cannot be empty (max 128 characters).",
+  EINVALID_DESCRIPTION: "Artifact description exceeds 1024 characters.",
+  EINVALID_URI: "Artifact media URI exceeds 512 characters or is empty.",
+  EINVALID_ADDRESS: "Recipient address cannot be zero (0x0).",
+  ESAME_OWNER: "Cannot transfer artifact to the current owner.",
+  ENOT_FOR_SALE: "This artifact is not currently listed for direct sale.",
+  EINSUFFICIENT_PAYMENT: "Insufficient payment or wallet balance.",
+  ECANNOT_BUY_OWN_NFT: "You cannot purchase or bid on your own artifact.",
+  ENFT_IN_AUCTION: "This artifact is currently locked in an active auction.",
+  ENFT_NOT_FOUND: "Artifact not found on-chain.",
+  EINVALID_DURATION: "Auction duration must be at least 1 hour.",
+  EMAX_ROYALTY_EXCEEDED: "Creator royalty cannot exceed 30%.",
+  EINVALID_EXPIRATION: "Offer expiration must be set in the future.",
+  EOFFER_EXPIRED: "This offer has already expired.",
+  EOFFER_NOT_FOUND: "Offer not found or invalid index.",
+  EOFFER_NOT_PENDING: "This offer is no longer pending or active.",
+  EALREADY_INITIALIZED: "Marketplace is already initialized.",
+  EAUCTION_ALREADY_EXISTS: "An active auction already exists for this artifact.",
+  EAUCTION_NOT_ENDED: "Auction duration has not ended yet.",
+  EAUCTION_HAS_BIDS: "Auction already has bids and cannot be cancelled.",
+  EALREADY_HIGHEST_BIDDER: "You are already the highest bidder.",
+  EBID_TOO_LOW: "Bid must be strictly higher than current highest bid.",
+  EAUCTION_NOT_ACTIVE: "Auction is no longer active.",
+  EAUCTION_EXPIRED: "Auction has already expired.",
+
+  // Decimal codes
+  "100": "You do not own this ocean artifact.",
+  "101": "This artifact is already listed for sale.",
+  "102": "Price must be greater than zero.",
+  "103": "Rarity tier must be between 1 and 4.",
+  "104": "Artifact name cannot be empty (max 128 characters).",
+  "105": "Artifact description exceeds 1024 characters.",
+  "106": "Artifact media URI exceeds 512 characters or is empty.",
+  "107": "Recipient address cannot be zero (0x0).",
+  "108": "Cannot transfer artifact to the current owner.",
+  "400": "This artifact is not currently listed for direct sale.",
+  "401": "Insufficient payment or wallet balance.",
+  "402": "You cannot purchase or bid on your own artifact.",
+  "403": "This artifact is currently locked in an active auction.",
+  "1000": "Artifact not found on-chain.",
+  "1001": "Auction duration must be at least 1 hour.",
+  "1005": "Creator royalty cannot exceed 30%.",
+  "1006": "Offer expiration must be set in the future.",
+  "1008": "This offer has already expired.",
+  "1009": "Offer not found or invalid index.",
+  "1010": "This offer is no longer pending or active.",
+  "1011": "Marketplace is already initialized.",
+  "1012": "An active auction already exists for this artifact.",
+  "1013": "Auction duration has not ended yet.",
+  "1014": "Auction already has bids and cannot be cancelled.",
+  "1015": "You are already the highest bidder.",
+  "1016": "Bid must be strictly higher than current highest bid.",
+  "1017": "Auction is no longer active.",
+  "1018": "Auction has already expired.",
+
+  // Hex codes
+  "0x64": "You do not own this ocean artifact.",
+  "0x65": "This artifact is already listed for sale.",
+  "0x66": "Price must be greater than zero.",
+  "0x67": "Rarity tier must be between 1 and 4.",
+  "0x68": "Artifact name cannot be empty.",
+  "0x69": "Artifact description exceeds 1024 characters.",
+  "0x6a": "Artifact media URI exceeds 512 characters or is empty.",
+  "0x6b": "Recipient address cannot be zero (0x0).",
+  "0x6c": "Cannot transfer artifact to the current owner.",
+  "0x190": "This artifact is not currently listed for direct sale.",
+  "0x191": "Insufficient payment or wallet balance.",
+  "0x192": "You cannot purchase or bid on your own artifact.",
+  "0x193": "This artifact is currently locked in an active auction.",
+  "0x3e8": "Artifact not found on-chain.",
+  "0x3e9": "Auction duration must be at least 1 hour.",
+  "0x3ed": "Creator royalty cannot exceed 30%.",
+  "0x3ee": "Offer expiration must be set in the future.",
+  "0x3f0": "This offer has already expired.",
+  "0x3f1": "Offer not found or invalid index.",
+  "0x3f2": "This offer is no longer pending or active.",
+  "0x3f3": "Marketplace is already initialized.",
+  "0x3f4": "An active auction already exists for this artifact.",
+  "0x3f5": "Auction duration has not ended yet.",
+  "0x3f6": "Auction already has bids and cannot be cancelled.",
+  "0x3f7": "You are already the highest bidder.",
+  "0x3f8": "Bid must be strictly higher than current highest bid.",
+  "0x3f9": "Auction is no longer active.",
+  "0x3fa": "Auction has already expired.",
+};
+
+/**
+ * Parses Move VM abort codes and wallet errors into user-friendly explanations.
+ */
+export function parseMoveAbort(err: unknown): string {
+  if (!err) return "Transaction failed";
+  const msg =
+    typeof err === "object" && err !== null && "message" in err
+      ? String((err as any).message)
+      : String(err);
+
+  if (/user rejected/i.test(msg) || /rejected the request/i.test(msg)) {
+    return "Transaction was cancelled in wallet.";
+  }
+
+  // 1. Check named error identifiers (e.g. EAUCTION_EXPIRED, ENOT_OWNER)
+  for (const [key, description] of Object.entries(MOVE_ERROR_MAP)) {
+    if (key.startsWith("E") && msg.includes(key)) {
+      return description;
+    }
+  }
+
+  // 2. Check explicit abort clauses: abort 1018, aborted with 1018, abort_code: 1018
+  const abortMatch = msg.match(
+    /(?:abort(?:ed)?(?:_code)?(?:\s+with)?(?:\s*:)?\s*)(\d+|0x[0-9a-fA-F]+)/i,
+  );
+  if (abortMatch && abortMatch[1]) {
+    const rawCode = abortMatch[1].toLowerCase();
+    const mapped = MOVE_ERROR_MAP[rawCode];
+    if (mapped) {
+      return mapped;
+    }
+  }
+
+  // 3. Check standalone numeric or hex codes with word boundaries (prevent 101 matching inside 1018)
+  const tokenMatch = msg.match(/\b(10\d\d|40[0-3]|10[0-8]|0x[0-9a-fA-F]+)\b/);
+  if (tokenMatch && tokenMatch[1]) {
+    const rawCode = tokenMatch[1].toLowerCase();
+    const mapped = MOVE_ERROR_MAP[rawCode];
+    if (mapped) {
+      return mapped;
+    }
+  }
+
+  return msg.length > 120 ? `${msg.slice(0, 117)}...` : msg;
+}
+
+/**
+ * Checks if a URI represents video media, ignoring query strings and fragments.
+ */
+export function isVideoUri(uri: string): boolean {
+  if (!uri || typeof uri !== "string") return false;
+  const urlPart = uri.split("?")[0] ?? "";
+  const clean = (urlPart.split("#")[0] ?? "").toLowerCase();
+  return (
+    clean.endsWith(".mp4") ||
+    clean.endsWith(".webm") ||
+    clean.endsWith(".ogg") ||
+    clean.endsWith(".mov") ||
+    uri.includes("cloudfront.net")
+  );
+}
+
+/**
+ * Resolves media URI for browser rendering (converting IPFS protocols and stripping dangerous schemes).
+ */
+export function resolveMediaUrl(uri: string): string {
+  if (!uri || typeof uri !== "string") return "";
+  const trimmed = uri.trim();
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("ipfs://")) {
+    const hash = trimmed.slice(7).replace(/^ipfs\//, "");
+    return `https://ipfs.io/ipfs/${hash}`;
+  }
+  if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
+    return trimmed;
+  }
+  return trimmed;
 }

@@ -20,13 +20,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import {
-  encodeStringToVector,
-  createEntryPayload,
-  confirmTransaction,
-  sanitizeMediaUri,
-} from "@/lib/aptosClient";
-import { Loader2 } from "lucide-react";
+import { encodeStringToVector, createEntryPayload, sanitizeMediaUri } from "@/lib/aptosClient";
+import { useMarketplaceTx } from "@/hooks/useMarketplaceTx";
+import { Loader2, Sparkles } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -35,12 +31,12 @@ interface Props {
 }
 
 export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
-  const { connected, signAndSubmitTransaction } = useWallet();
+  const { connected } = useWallet();
+  const { executeTx, isSubmitting: loading } = useMarketplaceTx();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [uri, setUri] = useState("");
   const [rarity, setRarity] = useState("1");
-  const [loading, setLoading] = useState(false);
 
   const handleMint = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,49 +44,59 @@ export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
       toast.error("Please connect your wallet first");
       return;
     }
-    if (!name.trim() || !uri.trim()) {
-      toast.error("Name and URI are required");
+
+    const trimmedName = name.trim();
+    const trimmedDesc = description.trim();
+    const trimmedUri = uri.trim();
+
+    if (!trimmedName) {
+      toast.error("Artifact name is required (max 128 characters)");
+      return;
+    }
+    if (new TextEncoder().encode(trimmedName).length > 128) {
+      toast.error("Artifact name exceeds 128 bytes limit");
       return;
     }
 
-    const sanitizedUri = sanitizeMediaUri(uri.trim());
+    if (new TextEncoder().encode(trimmedDesc).length > 1024) {
+      toast.error("Description exceeds 1024 bytes limit");
+      return;
+    }
+
+    const sanitizedUri = sanitizeMediaUri(trimmedUri);
     if (!sanitizedUri) {
       toast.error("Please enter a valid https:// or ipfs:// media URL");
       return;
     }
+    if (new TextEncoder().encode(sanitizedUri).length > 512) {
+      toast.error("Media URI exceeds 512 bytes limit");
+      return;
+    }
 
-    setLoading(true);
-    const toastId = toast.loading("Submitting mint transaction...");
+    const payload = createEntryPayload("mint_nft", [
+      encodeStringToVector(trimmedName),
+      encodeStringToVector(trimmedDesc),
+      encodeStringToVector(sanitizedUri),
+      parseInt(rarity, 10),
+    ]);
 
-    try {
-      const payload = createEntryPayload("mint_nft", [
-        encodeStringToVector(name.trim()),
-        encodeStringToVector(description.trim()),
-        encodeStringToVector(sanitizedUri),
-        parseInt(rarity, 10),
-      ]);
+    const txHash = await executeTx(payload, {
+      title: `Minting "${trimmedName}"`,
+      description: "Writing artifact metadata to the Aptos blockchain...",
+      successTitle: "Artifact Minted!",
+      successDescription: `"${trimmedName}" is now registered in your Aptos collection.`,
+      onSuccess: () => {
+        setName("");
+        setDescription("");
+        setUri("");
+        setRarity("1");
+        onOpenChange(false);
+        onSuccess?.();
+      },
+    });
 
-      const response: any = await signAndSubmitTransaction(payload);
-      toast.loading("Waiting for on-chain confirmation...", { id: toastId });
-
-      await confirmTransaction(response);
-
-      toast.success("NFT minted successfully on Aptos!", { id: toastId });
-      setName("");
-      setDescription("");
-      setUri("");
-      setRarity("1");
-      onOpenChange(false);
-      onSuccess?.();
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("orbix:nft-updated"));
-      }
-    } catch (err: any) {
-      console.error("Error minting NFT:", err);
-      toast.error(err?.message || "Failed to mint NFT", { id: toastId });
-    } finally {
-      setLoading(false);
+    if (txHash && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("orbix:nft-updated"));
     }
   };
 
@@ -98,8 +104,8 @@ export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-space/95 border-white/10 text-cream backdrop-blur-xl sm:max-w-lg rounded-3xl">
         <DialogHeader>
-          <DialogTitle className="font-grotesk uppercase tracking-wide text-2xl text-cream">
-            Mint New Ocean Artifact
+          <DialogTitle className="font-grotesk uppercase tracking-wide text-2xl text-cream flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-neon" /> Mint New Ocean Artifact
           </DialogTitle>
           <DialogDescription className="text-cream/70 font-mono text-xs">
             Create and permanently register a new digital object on the Aptos blockchain.
@@ -109,43 +115,44 @@ export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
         <form onSubmit={handleMint} className="space-y-4 py-2">
           <div className="space-y-1.5">
             <Label htmlFor="mint-name" className="text-xs font-mono uppercase text-cream/80">
-              Object Name *
+              Object Name * (Max 128 chars)
             </Label>
             <Input
               id="mint-name"
-              maxLength={64}
+              maxLength={128}
               placeholder="e.g. Abyssal Current #01"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="bg-white/5 border-white/15 text-cream placeholder:text-cream/30 focus-visible:ring-neon"
+              className="bg-white/5 border-white/15 text-cream placeholder:text-cream/30 focus-visible:ring-neon font-mono"
               required
             />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="mint-desc" className="text-xs font-mono uppercase text-cream/80">
-              Description
+              Description (Max 1024 chars)
             </Label>
             <Textarea
               id="mint-desc"
-              maxLength={500}
+              maxLength={1024}
               placeholder="Describe this artifact fixed beyond tides and time..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="bg-white/5 border-white/15 text-cream placeholder:text-cream/30 focus-visible:ring-neon resize-none h-20"
+              className="bg-white/5 border-white/15 text-cream placeholder:text-cream/30 focus-visible:ring-neon resize-none h-20 font-mono text-xs"
             />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="mint-uri" className="text-xs font-mono uppercase text-cream/80">
-              Media / Metadata URI *
+              Media / Metadata URI * (Max 512 chars)
             </Label>
             <Input
               id="mint-uri"
-              placeholder="https://ipfs.io/ipfs/... or https://..."
+              maxLength={512}
+              placeholder="ipfs://... or https://..."
               value={uri}
               onChange={(e) => setUri(e.target.value)}
-              className="bg-white/5 border-white/15 text-cream placeholder:text-cream/30 focus-visible:ring-neon"
+              className="bg-white/5 border-white/15 text-cream placeholder:text-cream/30 focus-visible:ring-neon font-mono"
               required
             />
           </div>
@@ -159,10 +166,10 @@ export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
                 <SelectValue placeholder="Select tier" />
               </SelectTrigger>
               <SelectContent className="bg-space border-white/10 text-cream font-mono">
-                <SelectItem value="1">Common</SelectItem>
-                <SelectItem value="2">Uncommon</SelectItem>
-                <SelectItem value="3">Rare</SelectItem>
-                <SelectItem value="4">Epic</SelectItem>
+                <SelectItem value="1">Common (1)</SelectItem>
+                <SelectItem value="2">Uncommon (2)</SelectItem>
+                <SelectItem value="3">Rare (3)</SelectItem>
+                <SelectItem value="4">Epic (4)</SelectItem>
               </SelectContent>
             </Select>
           </div>

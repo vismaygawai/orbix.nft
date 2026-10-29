@@ -12,12 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import {
-  MARKETPLACE_CONTRACT_ADDRESS,
-  aptToOctas,
-  createEntryPayload,
-  confirmTransaction,
-} from "@/lib/aptosClient";
+import { MARKETPLACE_CONTRACT_ADDRESS, aptToOctas, createEntryPayload } from "@/lib/aptosClient";
+import { useMarketplaceTx } from "@/hooks/useMarketplaceTx";
 import { ShoppingBag, Loader2, XCircle } from "lucide-react";
 
 interface Props {
@@ -37,10 +33,9 @@ export function ListNFTModal({
   currentPriceApt = 0,
   onSuccess,
 }: Props) {
-  const { connected, signAndSubmitTransaction } = useWallet();
+  const { connected } = useWallet();
+  const { executeTx, isSubmitting } = useMarketplaceTx();
   const [price, setPrice] = useState(currentPriceApt > 0 ? String(currentPriceApt) : "");
-  const [loading, setLoading] = useState(false);
-  const [delisting, setDelisting] = useState(false);
 
   useEffect(() => {
     setPrice(currentPriceApt > 0 ? String(currentPriceApt) : "");
@@ -54,44 +49,29 @@ export function ListNFTModal({
     }
 
     const priceNum = parseFloat(price);
-    if (isNaN(priceNum) || priceNum <= 0) {
-      toast.error("Please enter a valid price in APT");
+    const octas = aptToOctas(price);
+    if (isNaN(priceNum) || priceNum <= 0 || octas <= 0) {
+      toast.error("Please enter a valid price in APT (minimum 0.00000001 APT)");
       return;
     }
 
-    setLoading(true);
-    const toastId = toast.loading(
-      isAlreadyForSale ? "Updating listing price..." : "Listing NFT for sale...",
-    );
+    const functionName = isAlreadyForSale ? "set_price" : "list_for_sale";
+    const payload = createEntryPayload(functionName, [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      nftId.toString(),
+      octas.toString(),
+    ]);
 
-    try {
-      const priceOctas = aptToOctas(priceNum).toString();
-      const functionName = isAlreadyForSale ? "set_price" : "list_for_sale";
-
-      const payload = createEntryPayload(functionName, [
-        MARKETPLACE_CONTRACT_ADDRESS,
-        nftId.toString(),
-        priceOctas,
-      ]);
-
-      const response: any = await signAndSubmitTransaction(payload);
-      toast.loading("Confirming on blockchain...", { id: toastId });
-      await confirmTransaction(response);
-
-      toast.success(isAlreadyForSale ? "Price updated successfully!" : "NFT listed for sale!", {
-        id: toastId,
-      });
-      onOpenChange(false);
-      onSuccess?.();
-    } catch (err: any) {
-      console.error("Listing error:", err);
-      let msg = err?.message || "Transaction failed";
-      if (msg.includes("100") || msg.includes("200")) msg = "Caller is not the owner";
-      if (msg.includes("101")) msg = "NFT is already listed";
-      toast.error(msg, { id: toastId });
-    } finally {
-      setLoading(false);
-    }
+    await executeTx(payload, {
+      title: isAlreadyForSale ? `Updating Price for #${nftId}` : `Listing #${nftId} for Sale`,
+      description: `Price: ${price} APT...`,
+      successTitle: isAlreadyForSale ? "Price Updated!" : "Artifact Listed for Sale!",
+      successDescription: `Object #${nftId} is now offered at ${price} APT.`,
+      onSuccess: () => {
+        onOpenChange(false);
+        onSuccess?.();
+      },
+    });
   };
 
   const handleCancelListing = async () => {
@@ -100,28 +80,21 @@ export function ListNFTModal({
       return;
     }
 
-    setDelisting(true);
-    const toastId = toast.loading(`Delisting Object #${nftId} from marketplace...`);
+    const payload = createEntryPayload("cancel_listing", [
+      MARKETPLACE_CONTRACT_ADDRESS,
+      nftId.toString(),
+    ]);
 
-    try {
-      const payload = createEntryPayload("cancel_listing", [
-        MARKETPLACE_CONTRACT_ADDRESS,
-        nftId.toString(),
-      ]);
-
-      const response: any = await signAndSubmitTransaction(payload);
-      toast.loading("Confirming delisting on Aptos...", { id: toastId });
-      await confirmTransaction(response);
-
-      toast.success(`Object #${nftId} removed from sale!`, { id: toastId });
-      onOpenChange(false);
-      onSuccess?.();
-    } catch (err: any) {
-      console.error("Cancel listing error:", err);
-      toast.error(err?.message || "Failed to cancel listing", { id: toastId });
-    } finally {
-      setDelisting(false);
-    }
+    await executeTx(payload, {
+      title: `Delisting Object #${nftId}`,
+      description: "Removing artifact from active listings...",
+      successTitle: "Listing Removed",
+      successDescription: `Object #${nftId} is no longer for sale.`,
+      onSuccess: () => {
+        onOpenChange(false);
+        onSuccess?.();
+      },
+    });
   };
 
   return (
@@ -148,7 +121,7 @@ export function ListNFTModal({
               id="list-price"
               type="number"
               step="any"
-              min="0.0001"
+              min="0.00000001"
               placeholder="e.g. 2.5"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
@@ -162,16 +135,12 @@ export function ListNFTModal({
               <Button
                 type="button"
                 variant="outline"
-                disabled={delisting || loading || !connected}
+                disabled={isSubmitting || !connected}
                 onClick={handleCancelListing}
                 className="border-rose-800 bg-rose-950/60 hover:bg-rose-950 text-rose-300 font-mono text-xs px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 w-full sm:w-auto cursor-pointer"
               >
-                {delisting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <XCircle className="w-4 h-4" />
-                )}
-                <span>{delisting ? "Delisting..." : "Delist NFT"}</span>
+                <XCircle className="w-4 h-4" />
+                <span>Delist NFT</span>
               </Button>
             ) : (
               <Button
@@ -186,12 +155,16 @@ export function ListNFTModal({
 
             <Button
               type="submit"
-              disabled={loading || delisting || !connected}
+              disabled={isSubmitting || !connected}
               className="orb-button text-cream font-mono text-xs px-6 py-2.5 rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto"
             >
-              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>
-                {loading ? "Processing..." : isAlreadyForSale ? "Update Price" : "List for Sale"}
+                {isSubmitting
+                  ? "Processing..."
+                  : isAlreadyForSale
+                    ? "Update Price"
+                    : "List for Sale"}
               </span>
             </Button>
           </DialogFooter>
