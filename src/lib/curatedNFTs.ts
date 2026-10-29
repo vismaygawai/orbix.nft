@@ -23,12 +23,12 @@ export const INITIAL_HERO_NFTS: NFT[] = [
     creator: PETRA_SELLER_WALLET,
     name: "Orby",
     description:
-      "Orby — Common character. The curious deep-sea companion navigating bioluminescent currents and tidal reefs. Rarity score 8.2/10.",
+      "Orby — Uncommon character. The curious deep-sea companion navigating bioluminescent currents and tidal reefs. Rarity score 8.2/10.",
     uri: "/videos/nft3.mp4",
     price: 500_000_000, // 5 APT ($50 USD)
     usdPrice: 50,
     for_sale: true,
-    rarity: 1, // Common character
+    rarity: 2, // Uncommon character
     in_auction: false,
   },
   {
@@ -61,7 +61,7 @@ export const INITIAL_HERO_NFTS: NFT[] = [
   },
 ];
 
-const STORAGE_KEY = "orbix:curated_nfts_v4";
+const STORAGE_KEY = "orbix:curated_nfts_v5";
 
 /**
  * Retrieves the list of curated NFTs, reading local state modifications if present.

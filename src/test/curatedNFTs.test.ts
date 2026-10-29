@@ -21,12 +21,12 @@ describe("Hero Section & Curated NFTs", () => {
     const orix = INITIAL_HERO_NFTS.find((n) => n.name === "Orix");
     const orbix = INITIAL_HERO_NFTS.find((n) => n.name === "Orbix");
 
-    // Orby: Common character ($50 / 5 APT)
+    // Orby: Uncommon character ($50 / 5 APT)
     expect(orby).toBeDefined();
     expect(orby?.usdPrice).toBe(50);
-    expect(orby?.rarity).toBe(1); // Common
+    expect(orby?.rarity).toBe(2); // Uncommon
     expect(orby?.uri).toBe("/videos/nft3.mp4");
-    expect(orby?.description).toContain("Common character");
+    expect(orby?.description).toContain("Uncommon character");
 
     // Orix: Secondary character ($100 / 10 APT)
     expect(orix).toBeDefined();

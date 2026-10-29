@@ -19,6 +19,7 @@ import {
   RARITY_MAP,
   APTOS_NETWORK,
 } from "@/lib/aptosClient";
+import { getForSaleCuratedNFTs } from "@/lib/curatedNFTs";
 import {
   TrendingUp,
   Activity,
@@ -94,12 +95,43 @@ function AnalyticsPage() {
       if (Array.isArray(forSaleRes?.[0])) {
         liveActiveListings = Math.max(liveActiveListings, forSaleRes[0].length);
       }
+      const curatedForSale = getForSaleCuratedNFTs();
+      if (curatedForSale.length > 0) {
+        liveActiveListings = Math.max(liveActiveListings, curatedForSale.length);
+      }
+
+      // Read local sales history (from curated purchases)
+      let localSalesCount = 0;
+      let localVolumeOctas = 0;
+      const localHistoryItems: any[] = [];
+      if (typeof window !== "undefined") {
+        try {
+          const rawHistory = localStorage.getItem("orbix:sales_history");
+          if (rawHistory) {
+            const parsed = JSON.parse(rawHistory);
+            if (Array.isArray(parsed)) {
+              localSalesCount = parsed.length;
+              parsed.forEach((item: any) => {
+                localVolumeOctas += Number(item.price || 0);
+                localHistoryItems.push({
+                  date: Math.floor(Number(item.timestamp || Date.now()) / 1000),
+                  sales: 1,
+                  volume: Number(item.price || 0),
+                });
+              });
+            }
+          }
+        } catch {
+          // ignore storage read errors
+        }
+      }
 
       // Aggregate history entries by day
-      const rawHistory = Array.isArray(basicStats?.[3]) ? (basicStats[3] as any[]) : [];
+      const onChainHistory = Array.isArray(basicStats?.[3]) ? (basicStats[3] as any[]) : [];
+      const combinedHistory = [...onChainHistory, ...localHistoryItems];
       const dayMap = new Map<string, { date: string; sales: number; dayVolume: number }>();
 
-      for (const item of rawHistory) {
+      for (const item of combinedHistory) {
         const itemSecs = Number(item.date);
         const dateKey = new Date(itemSecs * 1000).toLocaleDateString([], {
           month: "short",
@@ -125,16 +157,34 @@ function AnalyticsPage() {
       const rawRarity = Array.isArray(rarityStats?.[0]) ? rarityStats[0] : [];
       const parsedRarity = [1, 2, 3, 4].map((tier) => {
         const found = rawRarity.find((r: any) => Number(r.rarity) === tier);
+        let tierSales = found ? Number(found.sales) : 0;
+        let tierVolume = found ? octasToApt(found.volume) : 0;
+
+        // Incorporate local sales by rarity
+        if (localHistoryItems.length > 0) {
+          const matchingCurated = curatedForSale.filter((c) => c.rarity === tier);
+          if (matchingCurated.length > 0) {
+            tierSales = Math.max(tierSales, 1);
+            tierVolume = Math.max(tierVolume, octasToApt(matchingCurated[0]?.price || 0));
+          }
+        }
+
         return {
           name: RARITY_MAP[tier]?.label || `Tier ${tier}`,
-          sales: found ? Number(found.sales) : 0,
-          volume: found ? octasToApt(found.volume) : 0,
+          sales: tierSales,
+          volume: tierVolume,
         };
       });
 
+      const totalSalesFinal = Math.max(Number(basicStats?.[0] || 0), localSalesCount);
+      const totalVolumeFinal = Math.max(
+        octasToApt(basicStats?.[1] || 0),
+        octasToApt(localVolumeOctas),
+      );
+
       setStats({
-        totalSales: Number(basicStats?.[0] || 0),
-        totalVolumeApt: octasToApt(basicStats?.[1] || 0),
+        totalSales: totalSalesFinal,
+        totalVolumeApt: totalVolumeFinal,
         activeListings: liveActiveListings,
         salesHistory: aggregatedHistory,
         salesByRarity: parsedRarity,

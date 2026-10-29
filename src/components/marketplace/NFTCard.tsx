@@ -168,7 +168,9 @@ export function NFTCard({ nft, onRefresh }: Props) {
                   ? " • Rarest • Main"
                   : nft.name === "Orix"
                     ? " • Secondary"
-                    : ""}
+                    : nft.name === "Orby"
+                      ? " • Uncommon"
+                      : ""}
               </span>
 
               {nft.in_auction ? (
