@@ -35,34 +35,37 @@ const CTA_POSTER = "/videos/CTA_video_poster.webp";
 const CARDS = [
   {
     id: 3,
-    name: "Abyssal Tide #03",
+    name: "Orby",
+    character: "Common Character",
     src: "/videos/nft3.mp4",
     poster: "/videos/nft3_poster.webp",
     score: "8.2/10",
-    tier: "Uncommon",
-    badge: null,
+    tier: "Common",
+    badge: "Common",
     usdPrice: 50,
     aptPrice: 5,
   },
   {
     id: 1,
-    name: "Deep Trench Core #01",
+    name: "Orix",
+    character: "Secondary Character",
     src: "/videos/nft1.mp4",
     poster: "/videos/nft1_poster.webp",
     score: "8.7/10",
     tier: "Rare",
-    badge: null,
+    badge: "Secondary",
     usdPrice: 100,
     aptPrice: 10,
   },
   {
     id: 2,
-    name: "Celestial Void Sphere #02",
+    name: "Orbix",
+    character: "Main Character",
     src: "/videos/nft2.mp4",
     poster: "/videos/nft2_poster.webp",
     score: "9/10",
     tier: "Epic",
-    badge: "Rarest",
+    badge: "Rarest • Main",
     usdPrice: 150,
     aptPrice: 15,
   },
@@ -296,9 +299,9 @@ function Index() {
                   />
                   <div className="absolute bottom-4 left-4 right-4 liquid-glass rounded-[20px] px-5 py-4 flex items-center justify-between gap-3">
                     <div className="flex flex-col">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-cream/70 font-mono uppercase">
-                          {c.tier} ({c.score})
+                      <div className="flex items-center gap-2">
+                        <span className="font-grotesk text-lg text-cream font-bold uppercase tracking-wide">
+                          {c.name}
                         </span>
                         {c.badge && (
                           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-neon/20 text-neon border border-neon/30 font-bold uppercase">
@@ -306,6 +309,9 @@ function Index() {
                           </span>
                         )}
                       </div>
+                      <span className="text-[11px] text-cream/70 font-mono uppercase mt-0.5">
+                        {c.character} • {c.score}
+                      </span>
                       <div className="flex items-baseline gap-2 mt-0.5">
                         <span className="text-[18px] text-neon font-mono font-bold">
                           ${c.usdPrice}
@@ -317,7 +323,7 @@ function Index() {
                     </div>
                     <Link
                       to="/market"
-                      aria-label={`Buy ${c.name} for ${c.usdPrice}`}
+                      aria-label={`Buy ${c.name} for $${c.usdPrice}`}
                       className="orb-button px-4 py-2 rounded-xl font-mono text-xs font-bold text-cream flex items-center gap-1.5 hover:scale-105 transition-transform shrink-0 cursor-pointer"
                     >
                       <span>Buy Now</span>

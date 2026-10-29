@@ -163,7 +163,12 @@ export function NFTCard({ nft, onRefresh }: Props) {
               <span
                 className={`px-3 py-1 rounded-full text-[11px] font-mono border backdrop-blur-md ${rarityInfo.badgeClass}`}
               >
-                {rarityInfo.label} {nft.rarity === 4 ? "• Rarest" : ""}
+                {rarityInfo.label}
+                {nft.name === "Orbix" || nft.rarity === 4
+                  ? " • Rarest • Main"
+                  : nft.name === "Orix"
+                    ? " • Secondary"
+                    : ""}
               </span>
 
               {nft.in_auction ? (

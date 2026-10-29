@@ -16,22 +16,31 @@ describe("Hero Section & Curated NFTs", () => {
     resetCuratedNFTs();
   });
 
-  it("verifies the 3 hero NFTs match user price and rarity requirements", () => {
-    const uncommon = INITIAL_HERO_NFTS.find((n) => n.rarity === 2);
-    const rare = INITIAL_HERO_NFTS.find((n) => n.rarity === 3);
-    const epic = INITIAL_HERO_NFTS.find((n) => n.rarity === 4);
+  it("verifies the 3 hero character NFTs match user price, rarity, and identity requirements", () => {
+    const orby = INITIAL_HERO_NFTS.find((n) => n.name === "Orby");
+    const orix = INITIAL_HERO_NFTS.find((n) => n.name === "Orix");
+    const orbix = INITIAL_HERO_NFTS.find((n) => n.name === "Orbix");
 
-    expect(uncommon).toBeDefined();
-    expect(uncommon?.usdPrice).toBe(50);
-    expect(uncommon?.uri).toBe("/videos/nft3.mp4");
+    // Orby: Common character ($50 / 5 APT)
+    expect(orby).toBeDefined();
+    expect(orby?.usdPrice).toBe(50);
+    expect(orby?.rarity).toBe(1); // Common
+    expect(orby?.uri).toBe("/videos/nft3.mp4");
+    expect(orby?.description).toContain("Common character");
 
-    expect(rare).toBeDefined();
-    expect(rare?.usdPrice).toBe(100);
-    expect(rare?.uri).toBe("/videos/nft1.mp4");
+    // Orix: Secondary character ($100 / 10 APT)
+    expect(orix).toBeDefined();
+    expect(orix?.usdPrice).toBe(100);
+    expect(orix?.rarity).toBe(3); // Rare
+    expect(orix?.uri).toBe("/videos/nft1.mp4");
+    expect(orix?.description).toContain("Secondary character");
 
-    expect(epic).toBeDefined();
-    expect(epic?.usdPrice).toBe(150);
-    expect(epic?.uri).toBe("/videos/nft2.mp4");
+    // Orbix: Main character / highest rarity ($150 / 15 APT)
+    expect(orbix).toBeDefined();
+    expect(orbix?.usdPrice).toBe(150);
+    expect(orbix?.rarity).toBe(4); // Epic (Highest)
+    expect(orbix?.uri).toBe("/videos/nft2.mp4");
+    expect(orbix?.description).toContain("Main character");
   });
 
   it("verifies all hero NFTs are owned and created by the user's Petra wallet", () => {

@@ -1,11 +1,9 @@
 /**
  * @file curatedNFTs.ts
- * @description Registry of verified ocean artifacts for orbix.nft.
- *
- * Configured with the three hero section artifacts:
- * - Uncommon: Artifact #3 ($50 USD / 5 APT)
- * - Rare: Artifact #1 ($100 USD / 10 APT)
- * - Rarest (Epic): Artifact #2 ($150 USD / 15 APT)
+ * @description Registry of verified ocean artifacts for orbix.nft featuring the three characters:
+ * - Orby: Common character (#3) — $50 USD / 5 APT (Common)
+ * - Orix: Secondary character (#1) — $100 USD / 10 APT (Rare)
+ * - Orbix: Main character / highest rarity (#2) — $150 USD / 15 APT (Epic / Rarest)
  *
  * All three artifacts are owned and created by the Petra wallet:
  * 0xde4c5c78def94d326afe8bbbe9215487fc1dabe355e49090594f410c9e09459d
@@ -23,46 +21,47 @@ export const INITIAL_HERO_NFTS: NFT[] = [
     id: 3,
     owner: PETRA_SELLER_WALLET,
     creator: PETRA_SELLER_WALLET,
-    name: "Abyssal Tide #03",
+    name: "Orby",
     description:
-      "Captures the deep luminescence of uncharted oceanic currents. Rarity score 8.2/10.",
+      "Orby — Common character. The curious deep-sea companion navigating bioluminescent currents and tidal reefs. Rarity score 8.2/10.",
     uri: "/videos/nft3.mp4",
     price: 500_000_000, // 5 APT ($50 USD)
     usdPrice: 50,
     for_sale: true,
-    rarity: 2, // Uncommon
+    rarity: 1, // Common character
     in_auction: false,
   },
   {
     id: 1,
     owner: PETRA_SELLER_WALLET,
     creator: PETRA_SELLER_WALLET,
-    name: "Deep Trench Core #01",
+    name: "Orix",
     description:
-      "Extracted from the benthic abyssal plain of the Mariana floor. Rarity score 8.7/10.",
+      "Orix — Secondary character. The sentinel explorer guarding the benthic abyssal plain of the Mariana trench. Rarity score 8.7/10.",
     uri: "/videos/nft1.mp4",
     price: 1_000_000_000, // 10 APT ($100 USD)
     usdPrice: 100,
     for_sale: true,
-    rarity: 3, // Rare
+    rarity: 3, // Rare / Secondary character
     in_auction: false,
   },
   {
     id: 2,
     owner: PETRA_SELLER_WALLET,
     creator: PETRA_SELLER_WALLET,
-    name: "Celestial Void Sphere #02",
-    description: "The rarest ocean artifact anchored beyond tides and time. Rarity score 9/10.",
+    name: "Orbix",
+    description:
+      "Orbix — Main character & highest rarity. The celestial oceanic core anchored beyond tides and time. Rarity score 9/10.",
     uri: "/videos/nft2.mp4",
     price: 1_500_000_000, // 15 APT ($150 USD)
     usdPrice: 150,
     for_sale: true,
-    rarity: 4, // Epic / Rarest
+    rarity: 4, // Epic / Highest Rarity Main Character
     in_auction: false,
   },
 ];
 
-const STORAGE_KEY = "orbix:curated_nfts_v2";
+const STORAGE_KEY = "orbix:curated_nfts_v4";
 
 /**
  * Retrieves the list of curated NFTs, reading local state modifications if present.
