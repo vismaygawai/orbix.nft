@@ -36,6 +36,7 @@ Thumbs.db
 !.vscode/extensions.json
 .idea/
 
-# Codebase bundle for NotebookLM
+# Codebase bundle for NotebookLM & archived dumps
+bin/*.txt
 full_codebase.txt
 remaining_code.txt
