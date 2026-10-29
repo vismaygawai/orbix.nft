@@ -467,3 +467,33 @@ export function resolveMediaUrl(uri: string): string {
   }
   return trimmed;
 }
+
+export const PETRA_SELLER_WALLET =
+  "0xde4c5c78def94d326afe8bbbe9215487fc1dabe355e49090594f410c9e09459d";
+
+let contractAvailableCache: boolean | null = null;
+let lastCheckTime = 0;
+
+/**
+ * Checks whether the Move marketplace contract is deployed and initialized on the connected network.
+ * Caches the result briefly to prevent redundant RPC calls.
+ */
+export async function isMarketplaceContractAvailable(): Promise<boolean> {
+  const now = Date.now();
+  if (contractAvailableCache !== null && now - lastCheckTime < 15_000) {
+    return contractAvailableCache;
+  }
+
+  try {
+    const res = await aptosClient.view({
+      function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::is_marketplace_initialized`,
+      type_arguments: [],
+      arguments: [MARKETPLACE_CONTRACT_ADDRESS],
+    });
+    contractAvailableCache = Boolean(res?.[0]);
+  } catch {
+    contractAvailableCache = false;
+  }
+  lastCheckTime = now;
+  return contractAvailableCache;
+}

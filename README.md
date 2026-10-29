@@ -57,8 +57,8 @@ The Move smart contract operates directly on Aptos Devnet. All marketplace state
 
 ### Entry Functions (State Modifying)
 
-| Function            | Description                                                                                      |
-| ------------------- | ------------------------------------------------------------------------------------------------ |
+| Function              | Description                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------ |
 | `initialize`          | Initializes the global marketplace state, tables, event handles, and statistics registry.        |
 | `mint_nft`            | Registers a new ocean artifact with title, description, media URI, and rarity tier (1 to 4).     |
 | `list_for_sale`       | Places an owned NFT up for direct purchase at a fixed price in Octas.                            |
@@ -68,31 +68,31 @@ The Move smart contract operates directly on Aptos Devnet. All marketplace state
 | `transfer_ownership`  | Transfers an unlisted NFT directly to a recipient Aptos address.                                 |
 | `create_auction`      | Initializes an on-chain auction with starting price and duration in seconds.                     |
 | `place_bid`           | Submits an increased bid and automatically returns funds to the prior highest bidder.            |
-| `finalize_auction`    | Settles an expired auction or allows the seller to close/cancel an empty auction early.           |
-| `set_creator_royalty` | Allows creators to configure secondary sales royalty percentages (0% to 30%).                     |
+| `finalize_auction`    | Settles an expired auction or allows the seller to close/cancel an empty auction early.          |
+| `set_creator_royalty` | Allows creators to configure secondary sales royalty percentages (0% to 30%).                    |
 | `make_offer`          | Submits an escrowed buyer offer with expiration timestamp, locking payment on-chain.             |
 | `accept_offer`        | Seller accepts an active buyer offer, settling transfer and payment on-chain.                    |
 | `cancel_offer`        | Allows buyer to cancel their pending or expired offer and reclaim escrowed APT.                  |
-| `reject_offer`        | Allows NFT owner/seller to reject an offer and immediately refund escrowed APT to the buyer.      |
+| `reject_offer`        | Allows NFT owner/seller to reject an offer and immediately refund escrowed APT to the buyer.     |
 
 ### View Functions (Read Only)
 
-| Function                    | Description                                                                                        |
-| --------------------------- | -------------------------------------------------------------------------------------------------- |
+| Function                     | Description                                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
 | `is_marketplace_initialized` | Checks if the global marketplace resource is initialized on-chain.                                 |
-| `get_nft_details`           | Returns complete token metadata (id, owner, name, description, uri, price, for_sale, rarity).       |
-| `is_nft_for_sale`           | Checks whether an NFT is currently listed for direct fixed-price sale.                             |
-| `get_nft_price`             | Returns the asking price in Octas for a listed NFT.                                                |
-| `get_owner`                 | Returns the current Aptos owner address for an NFT ID.                                             |
-| `get_all_nfts_for_owner`    | Queries all NFT IDs registered to a specific Aptos account address with pagination.               |
-| `get_all_nfts_for_sale`     | Returns all fixed-price marketplace listings with pagination.                                      |
-| `get_nfts_by_rarity`        | Filters and retrieves all NFT IDs matching a specific rarity tier (1 to 4).                        |
-| `get_marketplace_stats`     | Retrieves aggregate metrics including total volume in Octas, total sales count, and sales history. |
-| `get_sales_by_rarity`       | Queries distribution of sales metrics segmented across the 4 rarity tiers.                         |
-| `get_active_auctions`       | Returns all ongoing auctions with live expiration timestamps and leading bids.                     |
-| `get_offers_for_nft`        | Returns all historical and active on-chain offers recorded for a specific NFT.                    |
-| `get_user_offers`           | Returns all active offers placed across the marketplace by a specific buyer address.              |
-| `get_creator_royalty`       | Returns the registered secondary royalty percentage for a creator address.                         |
+| `get_nft_details`            | Returns complete token metadata (id, owner, name, description, uri, price, for_sale, rarity).      |
+| `is_nft_for_sale`            | Checks whether an NFT is currently listed for direct fixed-price sale.                             |
+| `get_nft_price`              | Returns the asking price in Octas for a listed NFT.                                                |
+| `get_owner`                  | Returns the current Aptos owner address for an NFT ID.                                             |
+| `get_all_nfts_for_owner`     | Queries all NFT IDs registered to a specific Aptos account address with pagination.                |
+| `get_all_nfts_for_sale`      | Returns all fixed-price marketplace listings with pagination.                                      |
+| `get_nfts_by_rarity`         | Filters and retrieves all NFT IDs matching a specific rarity tier (1 to 4).                        |
+| `get_marketplace_stats`      | Retrieves aggregate metrics including total volume in Octas, total sales count, and sales history. |
+| `get_sales_by_rarity`        | Queries distribution of sales metrics segmented across the 4 rarity tiers.                         |
+| `get_active_auctions`        | Returns all ongoing auctions with live expiration timestamps and leading bids.                     |
+| `get_offers_for_nft`         | Returns all historical and active on-chain offers recorded for a specific NFT.                     |
+| `get_user_offers`            | Returns all active offers placed across the marketplace by a specific buyer address.               |
+| `get_creator_royalty`        | Returns the registered secondary royalty percentage for a creator address.                         |
 
 ---
 

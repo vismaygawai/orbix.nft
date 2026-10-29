@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   MARKETPLACE_CONTRACT_ADDRESS,
+  PETRA_SELLER_WALLET,
   octasToApt,
   truncateAddress,
   getRarityInfo,
@@ -11,7 +12,9 @@ import {
   resolveMediaUrl,
   isVideoUri,
   isSameAddress,
+  isMarketplaceContractAvailable,
 } from "@/lib/aptosClient";
+import { recordNFTPurchase } from "@/lib/curatedNFTs";
 import { useMarketplaceTx } from "@/hooks/useMarketplaceTx";
 import { NFT } from "@/types/marketplace";
 import { MakeOfferModal } from "./MakeOfferModal";
@@ -94,24 +97,52 @@ export function NFTCard({ nft, onRefresh }: Props) {
   const priceApt = octasToApt(nft.price);
 
   const handleBuyNow = async () => {
+    if (!connected) {
+      toast.error("Wallet Not Connected", {
+        description: "Please connect your Petra or Aptos wallet to buy this artifact.",
+      });
+      return;
+    }
+
     if (isOwner) {
       toast.error("You already own this artifact.");
       return;
     }
 
-    const payload = createEntryPayload("purchase_nft", [
-      MARKETPLACE_CONTRACT_ADDRESS,
-      nft.id.toString(),
-      nft.price.toString(),
-    ]);
+    // Direct seller recipient address (Petra wallet)
+    const sellerRecipient = nft.owner || PETRA_SELLER_WALLET;
+    const priceLabel = nft.usdPrice ? `$${nft.usdPrice} (${priceApt} APT)` : `${priceApt} APT`;
+
+    // Check if on-chain Move contract is deployed and initialized
+    const contractAvailable = await isMarketplaceContractAvailable();
+
+    let payload: any;
+    if (contractAvailable) {
+      payload = createEntryPayload("purchase_nft", [
+        MARKETPLACE_CONTRACT_ADDRESS,
+        nft.id.toString(),
+        nft.price.toString(),
+      ]);
+    } else {
+      // Native Aptos transfer directly to seller's Petra wallet
+      payload = {
+        data: {
+          function: "0x1::aptos_account::transfer",
+          typeArguments: [],
+          functionArguments: [sellerRecipient, nft.price.toString()],
+        },
+      };
+    }
 
     await executeTx(payload, {
       title: `Purchasing ${nft.name || "Artifact"}`,
-      description: `Paying ${priceApt} APT for artifact #${nft.id}...`,
+      description: `Transferring ${priceLabel} to ${truncateAddress(sellerRecipient)} (Petra Wallet)...`,
       successTitle: "Purchase Successful!",
-      successDescription: `Congratulations! You now own ${nft.name || `Artifact #${nft.id}`}.`,
-      onSuccess: () => {
+      successDescription: `Transferred ${priceApt} APT ($${nft.usdPrice || 0}) directly to ${truncateAddress(sellerRecipient)}. You now own ${nft.name || `Artifact #${nft.id}`}!`,
+      onSuccess: (txHash) => {
+        recordNFTPurchase(nft.id, walletAddress, txHash);
         onRefresh?.();
+        window.dispatchEvent(new CustomEvent("orbix:nft-updated"));
       },
     });
   };
@@ -132,7 +163,7 @@ export function NFTCard({ nft, onRefresh }: Props) {
               <span
                 className={`px-3 py-1 rounded-full text-[11px] font-mono border backdrop-blur-md ${rarityInfo.badgeClass}`}
               >
-                {rarityInfo.label}
+                {rarityInfo.label} {nft.rarity === 4 ? "• Rarest" : ""}
               </span>
 
               {nft.in_auction ? (
@@ -166,13 +197,24 @@ export function NFTCard({ nft, onRefresh }: Props) {
 
             <div className="pt-2 flex items-center justify-between text-xs font-mono border-t border-white/5">
               <span className="text-cream/50">Owner:</span>
-              <span className="text-cream font-medium">{truncateAddress(nft.owner)}</span>
+              <span className="text-cream font-medium" title={nft.owner}>
+                {isOwner ? "You (Connected)" : truncateAddress(nft.owner)}
+              </span>
             </div>
 
             {nft.for_sale && (
-              <div className="flex items-center justify-between text-xs font-mono">
+              <div className="flex items-center justify-between text-xs font-mono pt-1">
                 <span className="text-cream/50">Price:</span>
-                <span className="text-neon font-bold text-base">{priceApt} APT</span>
+                <div className="flex items-baseline gap-1.5">
+                  {nft.usdPrice ? (
+                    <>
+                      <span className="text-cream font-bold text-base">${nft.usdPrice}</span>
+                      <span className="text-neon font-bold text-xs">({priceApt} APT)</span>
+                    </>
+                  ) : (
+                    <span className="text-neon font-bold text-base">{priceApt} APT</span>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -183,16 +225,26 @@ export function NFTCard({ nft, onRefresh }: Props) {
           {nft.for_sale && !isOwner && !nft.in_auction && (
             <Button
               onClick={handleBuyNow}
-              disabled={buying || !connected}
-              className="w-full orb-button text-cream font-mono text-xs py-2 rounded-xl flex items-center justify-center gap-1.5"
+              disabled={buying}
+              className="w-full orb-button text-cream font-mono text-xs py-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer hover:scale-[1.02] transition-transform"
             >
               {buying ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
                 <ShoppingBag className="w-3.5 h-3.5" />
               )}
-              <span>Buy Now ({priceApt} APT)</span>
+              <span>
+                Buy Now{" "}
+                {nft.usdPrice ? `($${nft.usdPrice} / ${priceApt} APT)` : `(${priceApt} APT)`}
+              </span>
             </Button>
+          )}
+
+          {isOwner && nft.for_sale && (
+            <div className="py-1 text-center font-mono text-xs text-neon/90 bg-neon/10 rounded-xl border border-neon/20">
+              Owned by You • Listed for{" "}
+              {nft.usdPrice ? `$${nft.usdPrice} (${priceApt} APT)` : `${priceApt} APT`}
+            </div>
           )}
 
           <div className="grid grid-cols-2 gap-2">

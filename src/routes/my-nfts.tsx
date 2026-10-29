@@ -20,6 +20,7 @@ import {
 } from "@/lib/aptosClient";
 import { useMarketplaceTx } from "@/hooks/useMarketplaceTx";
 import { NFT, Offer } from "@/types/marketplace";
+import { getOwnedCuratedNFTs } from "@/lib/curatedNFTs";
 import {
   Wallet,
   PlusCircle,
@@ -89,50 +90,62 @@ function MyNFTsPage() {
     setLoadingNfts(true);
     setHasError(false);
     try {
-      const idsResult: any = await aptosClient.view({
-        function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_all_nfts_for_owner`,
-        type_arguments: [],
-        arguments: [MARKETPLACE_CONTRACT_ADDRESS, walletAddress, "100", "0"],
-      });
+      // 1. Get curated/locally owned artifacts for this wallet (e.g. 0xde4c... owns hero NFTs)
+      const localOwned = getOwnedCuratedNFTs(walletAddress);
 
-      const rawIds: any[] = Array.isArray(idsResult?.[0]) ? idsResult[0] : [];
-      if (rawIds.length === 0) {
-        setNfts([]);
-        return;
-      }
-
-      // Safe individual fetch so 1 corrupt artifact won't crash the whole collection
-      const detailsPromises = rawIds.map(async (idRaw) => {
-        try {
-          const nftId = Number(idRaw);
-          const res: any = await aptosClient.view({
-            function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_nft_details`,
+      // 2. Query on-chain safe view
+      let onChainOwned: NFT[] = [];
+      try {
+        const idsResult: any = await aptosClient
+          .view({
+            function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_all_nfts_for_owner`,
             type_arguments: [],
-            arguments: [MARKETPLACE_CONTRACT_ADDRESS, nftId.toString()],
+            arguments: [MARKETPLACE_CONTRACT_ADDRESS, walletAddress, "100", "0"],
+          })
+          .catch(() => [[]]);
+
+        const rawIds: any[] = Array.isArray(idsResult?.[0]) ? idsResult[0] : [];
+        if (rawIds.length > 0) {
+          const detailsPromises = rawIds.map(async (idRaw) => {
+            try {
+              const nftId = Number(idRaw);
+              const res: any = await aptosClient.view({
+                function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_nft_details`,
+                type_arguments: [],
+                arguments: [MARKETPLACE_CONTRACT_ADDRESS, nftId.toString()],
+              });
+
+              return {
+                id: Number(res[0]),
+                owner: String(res[1]),
+                name: decodeVectorToString(res[2]),
+                description: decodeVectorToString(res[3]),
+                uri: decodeVectorToString(res[4]),
+                price: Number(res[5]),
+                for_sale: Boolean(res[6]),
+                rarity: Number(res[7]),
+              } as NFT;
+            } catch (err) {
+              console.warn(`Failed to fetch NFT #${idRaw}:`, err);
+              return null;
+            }
           });
 
-          return {
-            id: Number(res[0]),
-            owner: String(res[1]),
-            name: decodeVectorToString(res[2]),
-            description: decodeVectorToString(res[3]),
-            uri: decodeVectorToString(res[4]),
-            price: Number(res[5]),
-            for_sale: Boolean(res[6]),
-            rarity: Number(res[7]),
-          } as NFT;
-        } catch (err) {
-          console.warn(`Failed to fetch NFT #${idRaw}:`, err);
-          return null;
+          onChainOwned = (await Promise.all(detailsPromises)).filter((x): x is NFT => x !== null);
         }
-      });
+      } catch (chainErr) {
+        console.warn("Could not query on-chain owned artifacts:", chainErr);
+      }
 
-      const resolved = (await Promise.all(detailsPromises)).filter((x): x is NFT => x !== null);
-      setNfts(resolved);
+      // Merge on-chain with local owned
+      const onChainIds = new Set(onChainOwned.map((n) => n.id));
+      const merged = [...onChainOwned, ...localOwned.filter((n) => !onChainIds.has(n.id))];
+      setNfts(merged);
     } catch (err) {
       console.error("Failed to fetch owned NFTs:", err);
-      setHasError(true);
-      setNfts([]);
+      const localOwned = getOwnedCuratedNFTs(walletAddress);
+      setNfts(localOwned);
+      setHasError(false);
     } finally {
       setLoadingNfts(false);
     }
@@ -147,11 +160,13 @@ function MyNFTsPage() {
 
     setLoadingOffers(true);
     try {
-      const userOffersRes: any = await aptosClient.view({
-        function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_user_offers`,
-        type_arguments: [],
-        arguments: [MARKETPLACE_CONTRACT_ADDRESS, walletAddress],
-      });
+      const userOffersRes: any = await aptosClient
+        .view({
+          function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_user_offers`,
+          type_arguments: [],
+          arguments: [MARKETPLACE_CONTRACT_ADDRESS, walletAddress],
+        })
+        .catch(() => [[]]);
 
       const rawUserOffers: any[] = Array.isArray(userOffersRes?.[0]) ? userOffersRes[0] : [];
       if (rawUserOffers.length === 0) {

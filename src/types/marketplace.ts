@@ -6,6 +6,7 @@ export interface NFT {
   description: string;
   uri: string;
   price: number; // in octas
+  usdPrice?: number; // USD price ($50, $100, $150)
   for_sale: boolean;
   rarity: number; // 1: Common, 2: Uncommon, 3: Rare, 4: Epic
   in_auction?: boolean;

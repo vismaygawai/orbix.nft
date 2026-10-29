@@ -33,13 +33,38 @@ const ABOUT_POSTER = "/videos/about_video_poster.webp";
 const CTA = "/videos/CTA_video.mp4";
 const CTA_POSTER = "/videos/CTA_video_poster.webp";
 const CARDS = [
-  { src: "/videos/nft1.mp4", poster: "/videos/nft1_poster.webp", score: "8.7/10", tier: "Rare" },
-  { src: "/videos/nft2.mp4", poster: "/videos/nft2_poster.webp", score: "9/10", tier: "Epic" },
   {
+    id: 3,
+    name: "Abyssal Tide #03",
     src: "/videos/nft3.mp4",
     poster: "/videos/nft3_poster.webp",
     score: "8.2/10",
     tier: "Uncommon",
+    badge: null,
+    usdPrice: 50,
+    aptPrice: 5,
+  },
+  {
+    id: 1,
+    name: "Deep Trench Core #01",
+    src: "/videos/nft1.mp4",
+    poster: "/videos/nft1_poster.webp",
+    score: "8.7/10",
+    tier: "Rare",
+    badge: null,
+    usdPrice: 100,
+    aptPrice: 10,
+  },
+  {
+    id: 2,
+    name: "Celestial Void Sphere #02",
+    src: "/videos/nft2.mp4",
+    poster: "/videos/nft2_poster.webp",
+    score: "9/10",
+    tier: "Epic",
+    badge: "Rarest",
+    usdPrice: 150,
+    aptPrice: 15,
   },
 ];
 const SOCIALS = [
@@ -269,21 +294,34 @@ function Index() {
                     poster={c.poster}
                     className="absolute inset-0 w-full h-full object-cover"
                   />
-                  <div className="absolute bottom-4 left-4 right-4 liquid-glass rounded-[20px] px-5 py-4 flex items-center justify-between">
+                  <div className="absolute bottom-4 left-4 right-4 liquid-glass rounded-[20px] px-5 py-4 flex items-center justify-between gap-3">
                     <div className="flex flex-col">
-                      <span className="text-[11px] text-cream/70 font-mono uppercase">
-                        Rarity Tier:
-                      </span>
-                      <span className="text-[16px] text-neon font-mono font-bold">
-                        {c.tier} ({c.score})
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-cream/70 font-mono uppercase">
+                          {c.tier} ({c.score})
+                        </span>
+                        {c.badge && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-neon/20 text-neon border border-neon/30 font-bold uppercase">
+                            {c.badge}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-baseline gap-2 mt-0.5">
+                        <span className="text-[18px] text-neon font-mono font-bold">
+                          ${c.usdPrice}
+                        </span>
+                        <span className="text-[12px] text-cream/60 font-mono">
+                          ({c.aptPrice} APT)
+                        </span>
+                      </div>
                     </div>
                     <Link
                       to="/market"
-                      aria-label={`View object ${i + 1}`}
-                      className="orb-button w-12 h-12 rounded-full flex items-center justify-center text-cream hover:scale-110 transition-transform duration-200"
+                      aria-label={`Buy ${c.name} for ${c.usdPrice}`}
+                      className="orb-button px-4 py-2 rounded-xl font-mono text-xs font-bold text-cream flex items-center gap-1.5 hover:scale-105 transition-transform shrink-0 cursor-pointer"
                     >
-                      <ChevronRight size={16} />
+                      <span>Buy Now</span>
+                      <ChevronRight size={14} />
                     </Link>
                   </div>
                 </div>
