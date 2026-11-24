@@ -8,12 +8,13 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import appCss from "../styles.css?url";
 import { AptosWalletProvider } from "@/components/wallet/AptosWalletProvider";
 import { NavBar } from "@/components/NavBar";
 import { Footer } from "@/components/Footer";
 import { Toaster } from "@/components/ui/sonner";
+import { syncLedgerTime } from "@/lib/aptosClient";
 
 function NotFoundComponent() {
   return (
@@ -77,6 +78,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "author", content: "Vismay" },
       { title: "orbix.nft — Beneath the Surface NFT Marketplace on Aptos" },
       {
         name: "description",
@@ -127,6 +129,10 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    void syncLedgerTime();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -124,6 +124,7 @@ function MyNFTsPage() {
                 price: Number(res[5]),
                 for_sale: Boolean(res[6]),
                 rarity: Number(res[7]),
+                onChain: true,
               } as NFT;
             } catch (err) {
               console.warn(`Failed to fetch NFT #${idRaw}:`, err);
@@ -237,9 +238,10 @@ function MyNFTsPage() {
     }
   }, [connected, walletAddress]);
 
-  // 3. Fetch Incoming Offers on Owned NFTs
+  // 3. Fetch Incoming Offers on Owned On-Chain NFTs
   const fetchIncomingOffers = useCallback(async () => {
-    if (!connected || !walletAddress || nfts.length === 0) {
+    const onChainOwnedNfts = nfts.filter((nft) => nft.onChain !== false);
+    if (!connected || !walletAddress || onChainOwnedNfts.length === 0) {
       setIncomingOffers([]);
       return;
     }
@@ -249,7 +251,7 @@ function MyNFTsPage() {
       const incomingList: IncomingOfferItem[] = [];
 
       await Promise.all(
-        nfts.map(async (nft) => {
+        onChainOwnedNfts.map(async (nft) => {
           try {
             const nftOffersRes: any = await aptosClient.view({
               function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_offers_for_nft`,

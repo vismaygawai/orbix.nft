@@ -25,11 +25,19 @@ export function useMarketplaceTx() {
         return null;
       }
 
-      // Check network alignment if network is reported
+      // Enforce network alignment to prevent signing transactions on an unintended chain (e.g. Mainnet vs Devnet)
       if (network?.name && network.name.toLowerCase() !== APTOS_NETWORK.toLowerCase()) {
-        console.warn(
-          `Wallet network (${network.name}) does not match app network (${APTOS_NETWORK}).`,
-        );
+        toast.error("Wrong Wallet Network", {
+          description: `Wallet is on ${network.name}. Please switch your wallet to Aptos ${APTOS_NETWORK.toUpperCase()} before signing.`,
+        });
+        return null;
+      }
+
+      if (!payload?.data?.function || typeof payload.data.function !== "string") {
+        toast.error("Invalid Transaction Payload", {
+          description: "The requested contract operation could not be constructed safely.",
+        });
+        return null;
       }
 
       setIsSubmitting(true);

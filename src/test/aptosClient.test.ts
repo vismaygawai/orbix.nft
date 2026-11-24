@@ -12,6 +12,7 @@ import {
   decodeVectorOrHexToString,
   getRarityInfo,
   normalizeAddress,
+  isValidAptosAddress,
   isSameAddress,
   getNowSeconds,
 } from "../lib/aptosClient";
@@ -42,15 +43,22 @@ describe("Aptos Client Utilities", () => {
     expect(sanitizeMediaUri("/videos/nft1.mp4")).toBe("/videos/nft1.mp4");
     expect(sanitizeMediaUri("javascript:alert(1)")).toBe("");
     expect(sanitizeMediaUri("data:text/html,<script>alert(1)</script>")).toBe("");
+    expect(sanitizeMediaUri("http://insecure.example.com/art.png")).toBe("");
+    expect(sanitizeMediaUri("//evil.example.com/art.png")).toBe("");
+    expect(sanitizeMediaUri("ipfs://../../etc/passwd")).toBe("");
+    expect(sanitizeMediaUri("https://user:pass@example.com/art.png")).toBe("");
   });
 
-  it("resolves media URIs for playback and browser rendering", () => {
+  it("resolves media URIs for playback and strips unsafe schemes", () => {
     expect(resolveMediaUrl("ipfs://QmHash123")).toBe("https://ipfs.io/ipfs/QmHash123");
     expect(resolveMediaUrl("ipfs://ipfs/QmHash123")).toBe("https://ipfs.io/ipfs/QmHash123");
     expect(resolveMediaUrl("/videos/nft1.mp4")).toBe("/videos/nft1.mp4");
     expect(resolveMediaUrl("https://arweave.net/artifact.png")).toBe(
       "https://arweave.net/artifact.png",
     );
+    expect(resolveMediaUrl("javascript:alert(1)")).toBe("");
+    expect(resolveMediaUrl("vbscript:msgbox(1)")).toBe("");
+    expect(resolveMediaUrl("custom-scheme:payload")).toBe("");
   });
 
   it("detects video URIs ignoring query strings and fragments", () => {
@@ -93,13 +101,17 @@ describe("Aptos Client Utilities", () => {
     expect(truncateAddress(mockAccountAddress)).toBe("0x4bee...f6fb");
   });
 
-  it("normalizes Aptos addresses and checks equality correctly", () => {
+  it("normalizes Aptos addresses and rejects malformed inputs", () => {
     const shortAddr = "0x4bee";
     const paddedAddr = "0x0000000000000000000000000000000000000000000000000000000000004bee";
     expect(normalizeAddress(shortAddr)).toBe(paddedAddr);
     expect(isSameAddress(shortAddr, paddedAddr)).toBe(true);
     expect(isSameAddress("0x0", "0x000")).toBe(false);
     expect(isSameAddress("0x1", "0x2")).toBe(false);
+    expect(normalizeAddress("not-hex")).toBe("");
+    expect(normalizeAddress({})).toBe("");
+    expect(isValidAptosAddress("0x1")).toBe(true);
+    expect(isValidAptosAddress("0xzzzz")).toBe(false);
   });
 
   it("encodes and decodes vector<u8> strings", () => {

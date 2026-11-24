@@ -122,7 +122,7 @@ function SocialButton({ Icon, label, href }: (typeof SOCIALS)[number]) {
     <a
       href={href}
       target="_blank"
-      rel="noreferrer"
+      rel="noopener noreferrer"
       aria-label={label}
       className="liquid-glass rounded-[1.2rem] w-[52px] h-[52px] flex items-center justify-center text-cream border border-white/15 hover:border-white/30 hover:bg-white/15 hover:scale-105 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-white/20 outline-none shadow-lg shadow-black/20"
     >

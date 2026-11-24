@@ -54,7 +54,7 @@ export function Footer() {
               <a
                 href={explorerUrl}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="font-mono text-xs sm:text-sm uppercase tracking-wider text-cream/70 hover:text-neon transition-colors flex items-center gap-1.5"
               >
                 <span>EXPLORER</span>
@@ -62,12 +62,12 @@ export function Footer() {
               </a>
 
               <a
-                href="https://devfolio.co/projects/nft-digital-assets-marketplace-5e7c"
+                href="https://github.com/vismaygawai/orbix.nft"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="font-mono text-xs sm:text-sm uppercase tracking-wider text-cream/70 hover:text-neon transition-colors flex items-center gap-1.5"
               >
-                <span>DEVFOLIO</span>
+                <span>GITHUB</span>
                 <ExternalLink className="w-3.5 h-3.5 opacity-60" />
               </a>
 
@@ -119,7 +119,7 @@ export function Footer() {
             </div>
 
             <div className="text-center sm:text-right">
-              © 2026 ORBIX STUDIO. ALL RIGHTS RESERVED.
+              © 2026 ORBIX.NFT • AUTHORED &amp; MAINTAINED BY VISMAY
             </div>
           </div>
         </div>

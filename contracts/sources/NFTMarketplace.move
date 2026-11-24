@@ -13,6 +13,9 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
         const MODULE_ADDRESS: address = @0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb;
         const MARKETPLACE_FEE_PERCENT: u64 = 2; // 2% fee
         const MIN_AUCTION_DURATION: u64 = 3600; // 1 hour in seconds
+        const MAX_AUCTION_DURATION: u64 = 2592000; // 30 days in seconds
+        const MAX_OFFER_DURATION: u64 = 2592000; // 30 days in seconds
+        const MAX_CREATOR_ROYALTY_PERCENT: u64 = 30; // 30% max royalty
 
         // Standardized Error Codes
         const ENOT_OWNER: u64 = 100;
@@ -541,7 +544,10 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             let nft = vector::borrow_mut(&mut marketplace.nfts, nft_id);
             assert!(nft.owner == seller, ENOT_OWNER);
             assert!(start_price > 0, EINVALID_PRICE);
-            assert!(duration >= MIN_AUCTION_DURATION, EINVALID_DURATION);
+            assert!(
+                duration >= MIN_AUCTION_DURATION && duration <= MAX_AUCTION_DURATION,
+                EINVALID_DURATION
+            );
 
             // Delist from fixed-price sale if currently listed
             if (nft.for_sale) {
@@ -695,7 +701,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             royalty_percentage: u64
         ) acquires Marketplace {
             let marketplace = borrow_global_mut<Marketplace>(marketplace_addr);
-            assert!(royalty_percentage <= 30, EMAX_ROYALTY_EXCEEDED);
+            assert!(royalty_percentage <= MAX_CREATOR_ROYALTY_PERCENT, EMAX_ROYALTY_EXCEEDED);
             table::upsert(&mut marketplace.creator_royalties, signer::address_of(account), royalty_percentage);
         }
 
@@ -714,7 +720,11 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             let nft = vector::borrow(&marketplace.nfts, nft_id);
             assert!(nft.owner != buyer_addr, ECANNOT_BUY_OWN_NFT);
             assert!(offer_price > 0, EINVALID_PRICE);
-            assert!(expiration > timestamp::now_seconds(), EINVALID_EXPIRATION);
+            let now = timestamp::now_seconds();
+            assert!(
+                expiration > now && expiration <= now + MAX_OFFER_DURATION,
+                EINVALID_EXPIRATION
+            );
 
             if (!table::contains(&marketplace.offers, nft_id)) {
                 table::add(&mut marketplace.offers, nft_id, vector::empty<Offer>());
@@ -819,8 +829,11 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             offer_index: u64
         ) acquires Marketplace {
             let marketplace = borrow_global_mut<Marketplace>(marketplace_addr);
+            assert!(nft_id < vector::length(&marketplace.nfts), ENFT_NOT_FOUND);
+            assert!(table::contains(&marketplace.offers, nft_id), EOFFER_NOT_FOUND);
             let caller = signer::address_of(account);
             let offers = table::borrow_mut(&mut marketplace.offers, nft_id);
+            assert!(offer_index < vector::length(offers), EOFFER_NOT_FOUND);
             let offer = vector::borrow_mut(offers, offer_index);
 
             assert!(offer.buyer == caller, ENOT_OWNER);
@@ -849,6 +862,7 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
         ) acquires Marketplace {
             let marketplace = borrow_global_mut<Marketplace>(marketplace_addr);
             assert!(nft_id < vector::length(&marketplace.nfts), ENFT_NOT_FOUND);
+            assert!(table::contains(&marketplace.offers, nft_id), EOFFER_NOT_FOUND);
 
             let nft_ref = vector::borrow(&marketplace.nfts, nft_id);
             let caller = signer::address_of(account);
@@ -1032,6 +1046,39 @@ address 0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb {
             assert!(vector::length(&get_active_auctions(admin_addr)) == 1, 11);
             finalize_auction(user2, admin_addr, 0); // cancelled early by seller with no bids
             assert!(vector::length(&get_active_auctions(admin_addr)) == 0, 12);
+        }
+
+        #[test(aptos_framework = @0x1, admin = @0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb, seller = @0x101, buyer = @0x202)]
+        #[expected_failure(abort_code = ENFT_NOT_FOUND)]
+        fun test_cancel_offer_invalid_nft_aborts(
+            aptos_framework: &signer,
+            admin: &signer,
+            seller: &signer,
+            buyer: &signer
+        ) acquires Marketplace {
+            timestamp::set_time_has_started_for_testing(aptos_framework);
+            let admin_addr = signer::address_of(admin);
+            create_account_for_test(admin_addr);
+            create_account_for_test(signer::address_of(seller));
+            create_account_for_test(signer::address_of(buyer));
+            initialize(admin);
+            cancel_offer(buyer, admin_addr, 999, 0);
+        }
+
+        #[test(aptos_framework = @0x1, admin = @0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb, user1 = @0x102)]
+        #[expected_failure(abort_code = EINVALID_DURATION)]
+        fun test_create_auction_excessive_duration_aborts(
+            aptos_framework: &signer,
+            admin: &signer,
+            user1: &signer
+        ) acquires Marketplace {
+            timestamp::set_time_has_started_for_testing(aptos_framework);
+            let admin_addr = signer::address_of(admin);
+            create_account_for_test(admin_addr);
+            create_account_for_test(signer::address_of(user1));
+            initialize(admin);
+            mint_nft(user1, b"Orbix Relic", b"Deep sea", b"https://orbix.nft/art.mp4", 4);
+            create_auction(user1, admin_addr, 0, 100000000, MAX_AUCTION_DURATION + 1);
         }
     }
 }

@@ -80,7 +80,7 @@ export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
       parseInt(rarity, 10),
     ]);
 
-    const txHash = await executeTx(payload, {
+    await executeTx(payload, {
       title: `Minting "${trimmedName}"`,
       description: "Writing artifact metadata to the Aptos blockchain...",
       successTitle: "Artifact Minted!",
@@ -94,10 +94,6 @@ export function MintNFTModal({ open, onOpenChange, onSuccess }: Props) {
         onSuccess?.();
       },
     });
-
-    if (txHash && typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("orbix:nft-updated"));
-    }
   };
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import {
   MARKETPLACE_CONTRACT_ADDRESS,
   octasToApt,
   aptToOctas,
+  aptToOctasBigInt,
   truncateAddress,
   createEntryPayload,
   normalizeAddress,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/aptosClient";
 import { useMarketplaceTx } from "@/hooks/useMarketplaceTx";
 import { Auction } from "@/types/marketplace";
+import { LazyMedia } from "./LazyMedia";
 import { Clock, Gavel, Loader2, Award, CheckCircle2, XCircle } from "lucide-react";
 
 interface Props {
@@ -32,58 +34,6 @@ interface NFTMetadata {
   description: string;
   uri: string;
   rarity: number;
-}
-
-function LazyAuctionMedia({ src, alt, isVideo }: { src: string; alt: string; isVideo: boolean }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry) {
-          setIsVisible(entry.isIntersecting);
-        }
-      },
-      { rootMargin: "200px" },
-    );
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div ref={containerRef} className="absolute inset-0 w-full h-full">
-      {isVideo ? (
-        isVisible ? (
-          <video
-            src={src}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="metadata"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full bg-navy-900/60 animate-pulse" />
-        )
-      ) : (
-        <img
-          src={src}
-          alt={alt}
-          loading="lazy"
-          onError={(e) => {
-            e.currentTarget.onerror = null;
-            e.currentTarget.src =
-              "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80";
-          }}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
-      )}
-    </div>
-  );
 }
 
 export function AuctionCard({ auction, onBidPlaced }: Props) {
@@ -150,7 +100,10 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
 
   const currentBidApt = octasToApt(auction.current_bid);
   const startPriceApt = octasToApt(auction.start_price);
-  const minBidApt = hasBids ? Number((currentBidApt + 0.0001).toFixed(4)) : startPriceApt;
+  const minBidOctas = hasBids
+    ? BigInt(Math.max(0, Math.trunc(auction.current_bid))) + 1n
+    : BigInt(Math.max(0, Math.trunc(auction.start_price)));
+  const minBidApt = octasToApt(minBidOctas);
 
   const isHighestBidder = Boolean(
     walletAddress && hasBids && isSameAddress(walletAddress, auction.highest_bidder),
@@ -178,18 +131,14 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
     }
 
     const amount = parseFloat(bidInput);
-    if (isNaN(amount) || (hasBids ? amount <= currentBidApt : amount < startPriceApt)) {
+    const octasBigInt = aptToOctasBigInt(bidInput);
+    const octas = aptToOctas(bidInput);
+    if (isNaN(amount) || octas <= 0 || octasBigInt < minBidOctas) {
       toast.error(
         hasBids
           ? `Bid must be strictly higher than current bid (${currentBidApt} APT)`
           : `First bid must be at least ${startPriceApt} APT`,
       );
-      return;
-    }
-
-    const octas = aptToOctas(bidInput);
-    if (octas <= 0) {
-      toast.error("Please enter a valid bid amount");
       return;
     }
 
@@ -199,7 +148,7 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
       octas.toString(),
     ]);
 
-    const txHash = await executeTx(payload, {
+    await executeTx(payload, {
       title: `Placing Bid on #${auction.nft_id}`,
       description: `Escrowing ${amount} APT for highest bid...`,
       successTitle: "Bid Accepted!",
@@ -209,10 +158,6 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
         onBidPlaced?.();
       },
     });
-
-    if (txHash && typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("orbix:nft-updated"));
-    }
   };
 
   const handleFinalizeAuction = async () => {
@@ -246,7 +191,7 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
     });
   };
 
-  const safeUri = nftDetails?.uri ? resolveMediaUrl(nftDetails.uri) : "/videos/nft1.mp4";
+  const safeUri = nftDetails?.uri ? resolveMediaUrl(nftDetails.uri) : "/videos/nft1_poster.webp";
   const isVideo = isVideoUri(safeUri);
   const rarityInfo = getRarityInfo(nftDetails ? nftDetails.rarity : 1);
   const displayName = nftDetails?.name || `Object #${auction.nft_id}`;
@@ -256,7 +201,7 @@ export function AuctionCard({ auction, onBidPlaced }: Props) {
       <div>
         {/* Media Preview */}
         <div className="relative pb-[100%] rounded-2xl overflow-hidden bg-white/5 mb-4 group">
-          <LazyAuctionMedia src={safeUri} alt={displayName} isVideo={isVideo} />
+          <LazyMedia src={safeUri} alt={displayName} isVideo={isVideo} />
 
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
             <span

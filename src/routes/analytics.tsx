@@ -19,7 +19,7 @@ import {
   RARITY_MAP,
   APTOS_NETWORK,
 } from "@/lib/aptosClient";
-import { getForSaleCuratedNFTs } from "@/lib/curatedNFTs";
+import { getForSaleCuratedNFTs, getValidatedSalesHistory } from "@/lib/curatedNFTs";
 import {
   TrendingUp,
   Activity,
@@ -67,6 +67,7 @@ function AnalyticsPage() {
     setHasError(false);
     try {
       // Parallelize queries across basic stats, rarity sales, and active listings
+      let rpcFailureCount = 0;
       const [basicStats, rarityStats, forSaleRes]: [any, any, any] = await Promise.all([
         aptosClient
           .view({
@@ -74,21 +75,30 @@ function AnalyticsPage() {
             arguments: [MARKETPLACE_CONTRACT_ADDRESS],
             type_arguments: [],
           })
-          .catch(() => [0, 0, 0, []]),
+          .catch(() => {
+            rpcFailureCount += 1;
+            return [0, 0, 0, []];
+          }),
         aptosClient
           .view({
             function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_sales_by_rarity`,
             arguments: [MARKETPLACE_CONTRACT_ADDRESS],
             type_arguments: [],
           })
-          .catch(() => [[]]),
+          .catch(() => {
+            rpcFailureCount += 1;
+            return [[]];
+          }),
         aptosClient
           .view({
             function: `${MARKETPLACE_CONTRACT_ADDRESS}::NFTMarketplace::get_all_nfts_for_sale`,
             type_arguments: [],
             arguments: [MARKETPLACE_CONTRACT_ADDRESS, "100", "0"],
           })
-          .catch(() => [[]]),
+          .catch(() => {
+            rpcFailureCount += 1;
+            return [[]];
+          }),
       ]);
 
       let liveActiveListings = Number(basicStats?.[2] || 0);
@@ -100,30 +110,35 @@ function AnalyticsPage() {
         liveActiveListings = Math.max(liveActiveListings, curatedForSale.length);
       }
 
-      // Read local sales history (from curated purchases)
+      // Read validated local sales history (from curated showcase purchases)
+      const validatedLocalHistory = getValidatedSalesHistory();
+      if (
+        rpcFailureCount === 3 &&
+        validatedLocalHistory.length === 0 &&
+        curatedForSale.length === 0
+      ) {
+        setHasError(true);
+        return;
+      }
+
       let localSalesCount = 0;
       let localVolumeOctas = 0;
-      const localHistoryItems: any[] = [];
-      if (typeof window !== "undefined") {
-        try {
-          const rawHistory = localStorage.getItem("orbix:sales_history");
-          if (rawHistory) {
-            const parsed = JSON.parse(rawHistory);
-            if (Array.isArray(parsed)) {
-              localSalesCount = parsed.length;
-              parsed.forEach((item: any) => {
-                localVolumeOctas += Number(item.price || 0);
-                localHistoryItems.push({
-                  date: Math.floor(Number(item.timestamp || Date.now()) / 1000),
-                  sales: 1,
-                  volume: Number(item.price || 0),
-                });
-              });
-            }
-          }
-        } catch {
-          // ignore storage read errors
-        }
+      const localHistoryItems: Array<{
+        date: number;
+        sales: number;
+        volume: number;
+        rarity: number;
+      }> = [];
+
+      for (const item of validatedLocalHistory) {
+        localSalesCount += 1;
+        localVolumeOctas += item.price;
+        localHistoryItems.push({
+          date: Math.floor(item.timestamp / 1000),
+          sales: 1,
+          volume: item.price,
+          rarity: item.rarity,
+        });
       }
 
       // Aggregate history entries by day
@@ -153,20 +168,21 @@ function AnalyticsPage() {
         };
       });
 
-      // Parse rarity
+      // Parse rarity breakdown from on-chain stats + verified local sales
       const rawRarity = Array.isArray(rarityStats?.[0]) ? rarityStats[0] : [];
       const parsedRarity = [1, 2, 3, 4].map((tier) => {
         const found = rawRarity.find((r: any) => Number(r.rarity) === tier);
         let tierSales = found ? Number(found.sales) : 0;
         let tierVolume = found ? octasToApt(found.volume) : 0;
 
-        // Incorporate local sales by rarity
-        if (localHistoryItems.length > 0) {
-          const matchingCurated = curatedForSale.filter((c) => c.rarity === tier);
-          if (matchingCurated.length > 0) {
-            tierSales = Math.max(tierSales, 1);
-            tierVolume = Math.max(tierVolume, octasToApt(matchingCurated[0]?.price || 0));
-          }
+        const matchingLocalSales = localHistoryItems.filter((item) => item.rarity === tier);
+        if (matchingLocalSales.length > 0) {
+          const localTierVolume = matchingLocalSales.reduce(
+            (sum, item) => sum + octasToApt(item.volume),
+            0,
+          );
+          tierSales = Math.max(tierSales, matchingLocalSales.length);
+          tierVolume = Math.max(tierVolume, Number(localTierVolume.toFixed(8)));
         }
 
         return {

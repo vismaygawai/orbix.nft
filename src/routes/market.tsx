@@ -136,6 +136,7 @@ function MarketPage() {
                     for_sale: Boolean(detailRes[6]),
                     rarity: parseInt(detailRes[7], 10),
                     in_auction: activeAuctionNftIds.has(nftId),
+                    onChain: true,
                   } as NFT;
                 }
                 return null;

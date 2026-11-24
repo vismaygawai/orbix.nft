@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -12,11 +12,13 @@ import {
   resolveMediaUrl,
   isVideoUri,
   isSameAddress,
+  isValidAptosAddress,
   isMarketplaceContractAvailable,
 } from "@/lib/aptosClient";
-import { recordNFTPurchase } from "@/lib/curatedNFTs";
+import { INITIAL_HERO_NFTS, recordNFTPurchase } from "@/lib/curatedNFTs";
 import { useMarketplaceTx } from "@/hooks/useMarketplaceTx";
 import { NFT } from "@/types/marketplace";
+import { LazyMedia } from "./LazyMedia";
 import { MakeOfferModal } from "./MakeOfferModal";
 import { OffersModal } from "./OffersModal";
 import { CreateAuctionModal } from "./CreateAuctionModal";
@@ -27,58 +29,6 @@ import { ShoppingBag, Tag, Gavel, Layers, Loader2, Send } from "lucide-react";
 interface Props {
   nft: NFT;
   onRefresh?: (() => void) | undefined;
-}
-
-function LazyCardMedia({ src, alt, isVideo }: { src: string; alt: string; isVideo: boolean }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry) {
-          setIsVisible(entry.isIntersecting);
-        }
-      },
-      { rootMargin: "200px" },
-    );
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div ref={containerRef} className="absolute inset-0 w-full h-full">
-      {isVideo ? (
-        isVisible ? (
-          <video
-            src={src}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="metadata"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full bg-navy-900/60 animate-pulse" />
-        )
-      ) : (
-        <img
-          src={src}
-          alt={alt}
-          loading="lazy"
-          onError={(e) => {
-            e.currentTarget.onerror = null;
-            e.currentTarget.src =
-              "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80";
-          }}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
-      )}
-    </div>
-  );
 }
 
 export function NFTCard({ nft, onRefresh }: Props) {
@@ -93,6 +43,7 @@ export function NFTCard({ nft, onRefresh }: Props) {
 
   const walletAddress = account?.address ? String(account.address) : "";
   const isOwner = Boolean(walletAddress && nft.owner && isSameAddress(walletAddress, nft.owner));
+  const isOnChainNft = nft.onChain !== false;
   const rarityInfo = getRarityInfo(nft.rarity);
   const priceApt = octasToApt(nft.price);
 
@@ -109,45 +60,58 @@ export function NFTCard({ nft, onRefresh }: Props) {
       return;
     }
 
-    // Direct seller recipient address (Petra wallet)
-    const sellerRecipient = nft.owner || PETRA_SELLER_WALLET;
-    const priceLabel = nft.usdPrice ? `$${nft.usdPrice} (${priceApt} APT)` : `${priceApt} APT`;
+    const sellerRecipient = isValidAptosAddress(nft.owner) ? nft.owner : PETRA_SELLER_WALLET;
+    const canonicalPrice = !isOnChainNft
+      ? (INITIAL_HERO_NFTS.find((item) => item.id === nft.id)?.price ?? nft.price)
+      : nft.price;
 
-    // Check if on-chain Move contract is deployed and initialized
-    const contractAvailable = await isMarketplaceContractAvailable();
+    if (!Number.isFinite(canonicalPrice) || canonicalPrice <= 0) {
+      toast.error("Invalid Listing Price", {
+        description: "This artifact has an invalid price configuration.",
+      });
+      return;
+    }
+
+    const canonicalApt = octasToApt(canonicalPrice);
+    const priceLabel = nft.usdPrice
+      ? `$${nft.usdPrice} (${canonicalApt} APT)`
+      : `${canonicalApt} APT`;
+
+    const contractAvailable = isOnChainNft ? await isMarketplaceContractAvailable() : false;
 
     let payload: any;
-    if (contractAvailable) {
+    if (isOnChainNft && contractAvailable) {
       payload = createEntryPayload("purchase_nft", [
         MARKETPLACE_CONTRACT_ADDRESS,
         nft.id.toString(),
-        nft.price.toString(),
+        canonicalPrice.toString(),
       ]);
     } else {
-      // Native Aptos transfer directly to seller's Petra wallet
+      // Native Aptos transfer directly to seller's Petra wallet for curated showcase artifacts
       payload = {
         data: {
           function: "0x1::aptos_account::transfer",
           typeArguments: [],
-          functionArguments: [sellerRecipient, nft.price.toString()],
+          functionArguments: [sellerRecipient, canonicalPrice.toString()],
         },
       };
     }
 
     await executeTx(payload, {
       title: `Purchasing ${nft.name || "Artifact"}`,
-      description: `Transferring ${priceLabel} to ${truncateAddress(sellerRecipient)} (Petra Wallet)...`,
+      description: `Transferring ${priceLabel} to ${truncateAddress(sellerRecipient)}...`,
       successTitle: "Purchase Successful!",
-      successDescription: `Transferred ${priceApt} APT ($${nft.usdPrice || 0}) directly to ${truncateAddress(sellerRecipient)}. You now own ${nft.name || `Artifact #${nft.id}`}!`,
+      successDescription: `Transferred ${canonicalApt} APT to ${truncateAddress(sellerRecipient)}. You now own ${nft.name || `Artifact #${nft.id}`}!`,
       onSuccess: (txHash) => {
-        recordNFTPurchase(nft.id, walletAddress, txHash);
+        if (!isOnChainNft) {
+          recordNFTPurchase(nft.id, walletAddress, txHash);
+        }
         onRefresh?.();
-        window.dispatchEvent(new CustomEvent("orbix:nft-updated"));
       },
     });
   };
 
-  const safeUri = resolveMediaUrl(nft.uri) || "/videos/nft1.mp4";
+  const safeUri = resolveMediaUrl(nft.uri) || "/videos/nft1_poster.webp";
   const isVideo = isVideoUri(safeUri);
 
   return (
@@ -156,7 +120,7 @@ export function NFTCard({ nft, onRefresh }: Props) {
         <div>
           {/* Media Container */}
           <div className="relative pb-[100%] rounded-2xl overflow-hidden bg-white/5 mb-4">
-            <LazyCardMedia src={safeUri} alt={nft.name} isVideo={isVideo} />
+            <LazyMedia src={safeUri} alt={nft.name} isVideo={isVideo} />
 
             {/* Rarity & Status Badges */}
             <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
@@ -259,8 +223,14 @@ export function NFTCard({ nft, onRefresh }: Props) {
               <Button
                 variant="outline"
                 size="sm"
+                disabled={!isOnChainNft}
+                title={
+                  !isOnChainNft
+                    ? "Escrowed offers are available for artifacts minted on-chain"
+                    : undefined
+                }
                 onClick={() => setOfferOpen(true)}
-                className="liquid-glass text-cream border-white/10 hover:bg-white/10 font-mono text-xs flex items-center justify-center gap-1 rounded-xl"
+                className="liquid-glass text-cream border-white/10 hover:bg-white/10 font-mono text-xs flex items-center justify-center gap-1 rounded-xl disabled:opacity-50"
               >
                 <Tag className="w-3 h-3 text-neon" />
                 <span>Make Offer</span>
@@ -269,7 +239,12 @@ export function NFTCard({ nft, onRefresh }: Props) {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={Boolean(nft.in_auction)}
+                disabled={Boolean(nft.in_auction) || !isOnChainNft}
+                title={
+                  !isOnChainNft
+                    ? "On-chain listing controls are available for artifacts minted on-chain"
+                    : undefined
+                }
                 onClick={() => setListOpen(true)}
                 className="liquid-glass text-cream border-white/10 hover:bg-white/10 font-mono text-xs flex items-center justify-center gap-1 rounded-xl disabled:opacity-50"
               >
@@ -282,7 +257,12 @@ export function NFTCard({ nft, onRefresh }: Props) {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={Boolean(nft.in_auction)}
+                disabled={Boolean(nft.in_auction) || !isOnChainNft}
+                title={
+                  !isOnChainNft
+                    ? "On-chain auctions are available for artifacts minted on-chain"
+                    : undefined
+                }
                 onClick={() => setAuctionOpen(true)}
                 className="liquid-glass text-cream border-white/10 hover:bg-white/10 font-mono text-xs flex items-center justify-center gap-1 rounded-xl disabled:opacity-50"
               >
@@ -293,8 +273,14 @@ export function NFTCard({ nft, onRefresh }: Props) {
               <Button
                 variant="outline"
                 size="sm"
+                disabled={!isOnChainNft}
+                title={
+                  !isOnChainNft
+                    ? "On-chain offers are available for artifacts minted on-chain"
+                    : undefined
+                }
                 onClick={() => setOffersListOpen(true)}
-                className="liquid-glass text-cream border-white/10 hover:bg-white/10 font-mono text-xs flex items-center justify-center gap-1 rounded-xl"
+                className="liquid-glass text-cream border-white/10 hover:bg-white/10 font-mono text-xs flex items-center justify-center gap-1 rounded-xl disabled:opacity-50"
               >
                 <Layers className="w-3 h-3 text-neon" />
                 <span>Offers</span>
@@ -302,7 +288,7 @@ export function NFTCard({ nft, onRefresh }: Props) {
             )}
           </div>
 
-          {isOwner && (
+          {isOwner && isOnChainNft && (
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="ghost"

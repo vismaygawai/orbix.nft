@@ -86,4 +86,27 @@ describe("Hero Section & Curated NFTs", () => {
     expect(relisted?.usdPrice).toBe(200);
     expect(relisted?.price).toBe(2_000_000_000);
   });
+
+  it("rejects tampered or malformed localStorage entries and falls back safely", () => {
+    window.localStorage.setItem(
+      "orbix:curated_nfts_v5",
+      JSON.stringify([
+        {
+          id: 99,
+          owner: "not-a-valid-address",
+          name: "Tampered",
+          description: "Bad",
+          uri: "javascript:alert(1)",
+          price: -10,
+          for_sale: true,
+          rarity: 99,
+        },
+      ]),
+    );
+
+    const safe = getCuratedNFTs();
+    expect(safe.length).toBe(3);
+    expect(safe.every((n) => n.onChain === false)).toBe(true);
+    expect(safe[0]?.uri.startsWith("/videos/")).toBe(true);
+  });
 });

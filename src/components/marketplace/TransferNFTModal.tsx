@@ -70,7 +70,7 @@ export function TransferNFTModal({ open, onOpenChange, nftId, onSuccess }: Props
       cleanAddress,
     ]);
 
-    const txHash = await executeTx(payload, {
+    await executeTx(payload, {
       title: `Transferring Object #${nftId}`,
       description: `Sending artifact to ${cleanAddress.slice(0, 10)}...`,
       successTitle: "Ownership Transferred!",
@@ -82,10 +82,6 @@ export function TransferNFTModal({ open, onOpenChange, nftId, onSuccess }: Props
         onSuccess?.();
       },
     });
-
-    if (txHash && typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("orbix:nft-updated"));
-    }
   };
 
   return (

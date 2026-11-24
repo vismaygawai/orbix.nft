@@ -8,23 +8,65 @@
 
 import { AptosClient } from "aptos";
 
-export const APTOS_NODE_URL =
-  (typeof import.meta !== "undefined" &&
-    import.meta.env &&
-    import.meta.env["VITE_APTOS_NODE_URL"]) ||
-  "https://fullnode.devnet.aptoslabs.com/v1";
-
-export const MARKETPLACE_CONTRACT_ADDRESS =
-  (typeof import.meta !== "undefined" &&
-    import.meta.env &&
-    import.meta.env["VITE_MARKETPLACE_CONTRACT_ADDRESS"]) ||
+const DEFAULT_APTOS_NODE_URL = "https://fullnode.devnet.aptoslabs.com/v1";
+const DEFAULT_MARKETPLACE_CONTRACT_ADDRESS =
   "0x4bee16faf06f7ffb1968c3b7baad06a651a80de4e5a620be45aa45853d23f6fb";
+const SUPPORTED_NETWORKS = new Set(["devnet", "testnet", "mainnet", "local"]);
 
-export const APTOS_NETWORK =
-  (typeof import.meta !== "undefined" &&
-    import.meta.env &&
-    import.meta.env["VITE_APTOS_NETWORK"]) ||
-  "devnet";
+/**
+ * Validates that an unknown value represents a syntactically valid Aptos hex address.
+ */
+export function isValidAptosAddress(addr: unknown): boolean {
+  if (!addr) return false;
+  const raw = String(addr).trim().toLowerCase();
+  const hex = raw.startsWith("0x") ? raw.slice(2) : raw;
+  return /^[0-9a-f]{1,64}$/.test(hex);
+}
+
+function resolveNetwork(): string {
+  const raw =
+    typeof import.meta !== "undefined" && import.meta.env
+      ? import.meta.env["VITE_APTOS_NETWORK"]
+      : undefined;
+  const normalized = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  return SUPPORTED_NETWORKS.has(normalized) ? normalized : "devnet";
+}
+
+function resolveNodeUrl(): string {
+  const raw =
+    typeof import.meta !== "undefined" && import.meta.env
+      ? import.meta.env["VITE_APTOS_NODE_URL"]
+      : undefined;
+  if (typeof raw !== "string" || !raw.trim()) return DEFAULT_APTOS_NODE_URL;
+  try {
+    const parsed = new URL(raw.trim());
+    const isLocalHost = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+    if (parsed.protocol === "https:" || (parsed.protocol === "http:" && isLocalHost)) {
+      return parsed.toString().replace(/\/$/, "");
+    }
+  } catch {
+    // Fall back to default node URL on invalid configuration
+  }
+  return DEFAULT_APTOS_NODE_URL;
+}
+
+function resolveContractAddress(): string {
+  const raw =
+    typeof import.meta !== "undefined" && import.meta.env
+      ? import.meta.env["VITE_MARKETPLACE_CONTRACT_ADDRESS"]
+      : undefined;
+  if (typeof raw === "string" && isValidAptosAddress(raw)) {
+    const normalized = normalizeAddress(raw);
+    if (normalized && normalized !== "0x0") return normalized;
+  }
+  return DEFAULT_MARKETPLACE_CONTRACT_ADDRESS;
+}
+
+export const APTOS_NODE_URL = resolveNodeUrl();
+
+export const MARKETPLACE_CONTRACT_ADDRESS = resolveContractAddress();
+
+export const APTOS_NETWORK = resolveNetwork();
 
 export const aptosClient = new AptosClient(APTOS_NODE_URL);
 
@@ -68,14 +110,12 @@ function normalizeDecimalInput(apt: number | string): string | null {
 
 /**
  * Converts human-readable APT into blockchain Octas (integer).
+ * Returns 0 if the value exceeds Number.MAX_SAFE_INTEGER octas or is invalid.
  */
 export function aptToOctas(apt: number | string): number {
-  const normalized = normalizeDecimalInput(apt);
-  if (!normalized) return 0;
-  const [whole, fraction = ""] = normalized.split(".");
-  const paddedFraction = fraction.padEnd(8, "0").slice(0, 8);
-  const cleanWhole = (whole || "0").replace(/^0+(?=\d)/, "") || "0";
-  return Number(BigInt(`${cleanWhole}${paddedFraction}`));
+  const octas = aptToOctasBigInt(apt);
+  if (octas <= 0n || octas > BigInt(Number.MAX_SAFE_INTEGER)) return 0;
+  return Number(octas);
 }
 
 /**
@@ -90,34 +130,63 @@ export function aptToOctasBigInt(apt: number | string): bigint {
   return BigInt(`${cleanWhole}${paddedFraction}`);
 }
 
+function hasUnsafeUriCharacters(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return /\s/.test(value) || value.includes("\\");
+}
+
+function extractSafeIpfsPath(uri: string): string | null {
+  const rawPath = uri.slice(7).replace(/^ipfs\//i, "");
+  if (!rawPath || rawPath.includes("..") || rawPath.startsWith("/")) return null;
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._\-/]*$/.test(rawPath)) return null;
+  return rawPath;
+}
+
 /**
- * Sanitizes user-supplied media URIs to prevent XSS (e.g. javascript:, data:text/html).
- * Also converts ipfs:// protocol URIs to an HTTPS gateway for browser playback.
+ * Sanitizes user-supplied media URIs to prevent XSS (e.g. javascript:, data:text/html),
+ * protocol-relative redirects, and insecure cleartext HTTP URLs.
  */
 export function sanitizeMediaUri(uri: string): string {
   if (!uri || typeof uri !== "string") return "";
   const trimmed = uri.trim();
+  if (!trimmed || hasUnsafeUriCharacters(trimmed)) return "";
+
   if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+    if (trimmed.includes("..")) return "";
     return trimmed;
   }
-  if (trimmed.startsWith("ipfs://")) {
-    return trimmed;
+
+  if (trimmed.toLowerCase().startsWith("ipfs://")) {
+    const ipfsPath = extractSafeIpfsPath(trimmed);
+    return ipfsPath ? `ipfs://${ipfsPath}` : "";
   }
-  if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
-    return trimmed;
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.username || parsed.password) return "";
+    if (parsed.protocol === "https:") {
+      return parsed.toString();
+    }
+  } catch {
+    return "";
   }
+
   return "";
 }
 
 /**
  * Normalizes an Aptos address to a lowercase 64-character hex string prefixed with 0x.
- * Handles addresses with or without leading zeros, or objects returned by wallet adapters.
+ * Returns an empty string if the input is not a valid Aptos hex address.
  */
 export function normalizeAddress(addr: unknown): string {
   if (!addr) return "";
   const raw = String(addr).trim().toLowerCase();
   const hex = raw.startsWith("0x") ? raw.slice(2) : raw;
-  if (!hex || /^0+$/.test(hex)) return "0x0";
+  if (!/^[0-9a-f]{1,64}$/.test(hex)) return "";
+  if (/^0+$/.test(hex)) return "0x0";
   return `0x${hex.padStart(64, "0")}`;
 }
 
@@ -450,22 +519,17 @@ export function isVideoUri(uri: string): boolean {
 }
 
 /**
- * Resolves media URI for browser rendering (converting IPFS protocols and stripping dangerous schemes).
+ * Resolves media URI for browser rendering, converting ipfs:// to an HTTPS gateway
+ * and stripping any unsafe or unrecognized schemes (returns empty string).
  */
 export function resolveMediaUrl(uri: string): string {
-  if (!uri || typeof uri !== "string") return "";
-  const trimmed = uri.trim();
-  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
-    return trimmed;
-  }
-  if (trimmed.startsWith("ipfs://")) {
-    const hash = trimmed.slice(7).replace(/^ipfs\//, "");
+  const sanitized = sanitizeMediaUri(uri);
+  if (!sanitized) return "";
+  if (sanitized.startsWith("ipfs://")) {
+    const hash = sanitized.slice(7).replace(/^ipfs\//i, "");
     return `https://ipfs.io/ipfs/${hash}`;
   }
-  if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
-    return trimmed;
-  }
-  return trimmed;
+  return sanitized;
 }
 
 export const PETRA_SELLER_WALLET =

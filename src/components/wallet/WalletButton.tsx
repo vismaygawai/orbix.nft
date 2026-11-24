@@ -134,7 +134,16 @@ export function WalletButton() {
 
   const handleConnect = async (wallet: any) => {
     if (wallet.readyState === "NotDetected") {
-      const targetUrl = isMobile ? "https://petra.app" : wallet.url || "https://petra.app";
+      const candidateUrl = isMobile ? "https://petra.app" : wallet.url || "https://petra.app";
+      let targetUrl = "https://petra.app";
+      try {
+        const parsed = new URL(String(candidateUrl));
+        if (parsed.protocol === "https:") {
+          targetUrl = parsed.toString();
+        }
+      } catch {
+        targetUrl = "https://petra.app";
+      }
       window.open(targetUrl, "_blank", "noopener,noreferrer");
       if (isMobile) {
         toast.info(
@@ -274,7 +283,7 @@ export function WalletButton() {
             <a
               href={`https://explorer.aptoslabs.com/account/${walletAddress}?network=${APTOS_NETWORK}`}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="w-full flex items-center justify-between text-xs font-mono p-2 rounded-lg hover:bg-white/10 text-cream/80 hover:text-cream transition-colors"
             >
               <span>View on Explorer</span>
